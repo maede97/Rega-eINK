@@ -38,6 +38,8 @@ const uint8_t MAP_INSET = 2;
 unsigned long nextRefreshMs = 0;
 const unsigned long REFRESH_INTERVAL_MS = 60000UL;
 
+unsigned long lastDataTimestamp = 0;
+
 struct FlightPoint
 {
   float latitude;
@@ -349,7 +351,8 @@ void drawFlightTrail(const FlightTrail &trail)
     int16_t y = mapLatitudeToY(trail.points[0].latitude);
     display.drawCircle(x, y, 2, GxEPD_BLACK);
 
-    if (trail.active) {
+    if (trail.active)
+    {
       drawCallSign(trail.points[0], trail.callsign.c_str());
     }
   }
@@ -371,6 +374,33 @@ void drawFlightTrails()
   {
     drawText("No active flights");
   }
+}
+
+void convertTimestampToString(unsigned long timestamp, char *buffer, size_t bufferSize)
+{
+  // timestamp is a unix timestamp, i need a swiss (GMT+2) HH:MM:SS string
+  time_t rawTime = (time_t)timestamp;
+  struct tm *timeInfo = gmtime(&rawTime);
+  timeInfo->tm_hour += 2; // GMT+2
+  mktime(timeInfo);       // normalize the time structure
+  snprintf(buffer, bufferSize, "%02d:%02d:%02d", timeInfo->tm_hour, timeInfo->tm_min, timeInfo->tm_sec);
+}
+
+void drawLastDataTimestamp()
+{
+  display.setFont(&FreeMonoBold9pt7b);
+  display.setTextColor(GxEPD_BLACK);
+  int16_t tbx, tby;
+  uint16_t tbw, tbh;
+  char buffer[32];
+  convertTimestampToString(lastDataTimestamp, buffer, sizeof(buffer));
+  display.getTextBounds(buffer, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+  int16_t cursorX = (int16_t)canvasWidth() - (int16_t)tbw - 2;
+  int16_t cursorY = (int16_t)tbh + 2;
+
+  display.setCursor(cursorX, cursorY);
+  display.print(buffer);
 }
 
 bool ensureWiFi()
@@ -428,10 +458,10 @@ bool fetchFlights()
   JsonArray flights = doc["flights"];
 
   // clear flight trails
-    for (size_t i = 0; i < NUM_FLIGHTS; ++i)
-    {
-      flightTrails[i].pointCount = 0;
-    }
+  for (size_t i = 0; i < NUM_FLIGHTS; ++i)
+  {
+    flightTrails[i].pointCount = 0;
+  }
 
   if (count == 0)
   {
@@ -444,6 +474,13 @@ bool fetchFlights()
     float latitude = flight["latitude"];
     float longitude = flight["longitude"];
     bool active = flight["active"];
+    unsigned long timestamp = flight["timestamp"];
+    
+    // update last timestamp
+    if (timestamp > lastDataTimestamp)
+    {
+      lastDataTimestamp = timestamp;
+    }
 
     // find existing flight trail
     FlightTrail *trail = nullptr;
@@ -465,12 +502,11 @@ bool fetchFlights()
         {
           trail = &flightTrails[i];
           trail->callsign = callsign;
+          trail->active = false; // mark as inactive initially
           break;
         }
       }
     }
-
-    trail->active = false; // mark as inactive initially
 
     // add point to trail
     if (trail && trail->pointCount < MAX_POINTS)
@@ -538,6 +574,8 @@ void loop()
       if (!fetchFlights())
       {
         // failed to fetch flight data
+        display.setPartialWindow(0, 0, display.width(), display.height());
+        display.firstPage();
         do
         {
           drawSwitzerlandMapFrame();
@@ -546,10 +584,13 @@ void loop()
         finishDisplay();
         return;
       }
+      display.setPartialWindow(0, 0, display.width(), display.height());
+      display.firstPage();
       do
       {
         drawSwitzerlandMapFrame();
         drawFlightTrails();
+        drawLastDataTimestamp();
       } while (display.nextPage());
       finishDisplay();
     }
