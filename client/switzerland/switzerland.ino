@@ -25,8 +25,8 @@
 #define LON_MAX 10.492030f
 
 #define DISPLAY_ROTATION 0
-#define NUM_FLIGHTS 20
-#define MAX_POINTS 16
+#define NUM_FLIGHTS 25
+#define MAX_POINTS 32
 
 // 4.2'' EPD Module
 GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(GxEPD2_420_GDEY042T81(/*CS=5*/ CS_PIN, /*DC=*/DC_PIN, /*RES=*/RES_PIN, /*BUSY=*/BUSY_PIN)); // 400x300, SSD1683
@@ -475,7 +475,7 @@ bool fetchFlights()
     float longitude = flight["longitude"];
     bool active = flight["active"];
     unsigned long timestamp = flight["timestamp"];
-    
+
     // update last timestamp
     if (timestamp > lastDataTimestamp)
     {
