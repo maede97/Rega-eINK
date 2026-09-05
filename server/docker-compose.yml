@@ -1,5 +1,6 @@
 services:
   api:
+    image: ghcr.io/maede97/Rega-eINK-server:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,6 +12,7 @@ services:
     restart: unless-stopped
 
   fetcher:
+    image: ghcr.io/maede97/Rega-eINK-server:latest
     build:
       context: .
       dockerfile: Dockerfile
