@@ -1,0 +1,39 @@
+services:
+  api:
+    image: ghcr.io/maede97/Rega-eINK-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - default
+      - traefik-proxy
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=traefik-proxy'
+      - 'traefik.http.routers.rega-eink-server.rule=Host(`rega.hueppis.com`)'
+      - 'traefik.http.routers.rega-eink-server.entrypoints=websecure'
+      - 'traefik.http.routers.rega-eink-server.tls=true'
+      - 'traefik.http.routers.rega-eink-server.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.rega-eink-server.loadbalancer.server.port=8000'
+    volumes:
+      - ./flights.db:/app/flights.db
+
+  fetcher:
+    image: ghcr.io/maede97/Rega-eINK-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["/app/start_fetcher.sh"]
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./flights.db:/app/flights.db
+
+networks:
+  traefik-proxy:
+    external: true
