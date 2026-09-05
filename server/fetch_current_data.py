@@ -62,23 +62,39 @@ def persist_flights(records: list[dict[str, object]]) -> int:
     with sqlite3.connect(DB_PATH) as conn:
         ensure_schema(conn)
 
-        # delete only the rows where no longer a callsign is present. keep the ones with valid callsigns
+        # delete only the rows where no longer a callsign is present. but keep the last location but mark as inactive
         current_callsigns = [record.get("callsign") for record in filtered_records]
         conn.execute(
-            "DELETE FROM flights WHERE callsign NOT IN ({})".format(
+            "UPDATE flights SET active = 0 WHERE callsign NOT IN ({})".format(
                 ",".join("?" for _ in current_callsigns)
             ),
             current_callsigns,
         )
+        # now delete the old flightpaths (inactive) but keep only the latest one for each callsign
+        conn.execute(
+            """
+            DELETE FROM flights
+            WHERE rowid NOT IN (
+                SELECT MAX(rowid)
+                FROM flights
+                GROUP BY callsign
+            )
+            AND active = 0
+            """
+        )
 
+        for record in filtered_records:
+            record["active"] = 1
+        
         conn.executemany(
-            "INSERT INTO flights (timestamp, callsign, latitude, longitude) VALUES (?, ?, ?, ?)",
+            "INSERT INTO flights (timestamp, callsign, latitude, longitude, active) VALUES (?, ?, ?, ?, ?)",
             [
                 (
                     record.get("timestamp"),
                     record.get("callsign"),
                     record.get("latitude"),
                     record.get("longitude"),
+                    record.get("active"),
                 )
                 for record in filtered_records
             ],

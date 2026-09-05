@@ -18,7 +18,8 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             timestamp TEXT,
             callsign TEXT,
             latitude REAL,
-            longitude REAL
+            longitude REAL,
+            active BOOLEAN
         )
         """
     )
@@ -85,7 +86,7 @@ def get_flights(limit: int = 100, authorization: str | None = Header(default=Non
         ensure_schema(conn)
         rows = conn.execute(
             """
-            SELECT timestamp, callsign, latitude, longitude
+            SELECT timestamp, callsign, latitude, longitude, active
             FROM flights
             ORDER BY timestamp DESC
             LIMIT ?
@@ -99,8 +100,9 @@ def get_flights(limit: int = 100, authorization: str | None = Header(default=Non
             "callsign": callsign,
             "latitude": latitude,
             "longitude": longitude,
+            "active": active,
         }
-        for timestamp, callsign, latitude, longitude in rows
+        for timestamp, callsign, latitude, longitude, active in rows
     ]
     return JSONResponse(content={"flights": payload, "count": len(payload)})
 
