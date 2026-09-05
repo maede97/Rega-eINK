@@ -1,2 +1,4 @@
 flights.db
 __pycache__/
+wifi_credentials.h
+api_keys.txt
