@@ -1,9 +1,6 @@
 services:
   api:
     image: ghcr.io/maede97/rega-eink-server:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
     restart: always
     networks:
@@ -19,16 +16,15 @@ services:
       - 'traefik.http.services.rega-eink-server.loadbalancer.server.port=8000'
     volumes:
       - ./flights.db:/app/flights.db
+      - ./api_keys.txt:/app/api_keys.txt
 
   fetcher:
     image: ghcr.io/maede97/rega-eink-server:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: ["/app/start_fetcher.sh"]
+    command: ["python", "fetch_current_data.py"]
     restart: no
     volumes:
       - ./flights.db:/app/flights.db
+      - ./api_keys.txt:/app/api_keys.txt
 
 networks:
   traefik-proxy:
