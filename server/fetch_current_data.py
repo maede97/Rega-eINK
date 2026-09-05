@@ -16,7 +16,8 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             timestamp TEXT,
             callsign TEXT,
             latitude REAL,
-            longitude REAL
+            longitude REAL,
+            active BOOLEAN
         )
         """
     )
@@ -51,6 +52,7 @@ def fetch_current_flights() -> list[dict[str, object]]:
                 "callsign": getattr(flight, "callsign", None),
                 "latitude": getattr(flight, "latitude", None),
                 "longitude": getattr(flight, "longitude", None),
+                "active": 1
             }
         )
     return records
@@ -82,9 +84,6 @@ def persist_flights(records: list[dict[str, object]]) -> int:
             AND active = 0
             """
         )
-
-        for record in filtered_records:
-            record["active"] = 1
         
         conn.executemany(
             "INSERT INTO flights (timestamp, callsign, latitude, longitude, active) VALUES (?, ?, ?, ?, ?)",
