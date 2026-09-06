@@ -50,10 +50,13 @@ def fetch_current_flights() -> list[dict[str, object]]:
         if getattr(flight, "callsign", None) is None:
             continue
         callsign = getattr(flight, "callsign", "")
-        if len(callsign) < 3:
+        if len(callsign) < 5:
             continue
         if callsign[:3] != AIRLINE_ICAO:
             # sometimes, the callsign is the aircraft and not RGAXX
+            continue
+        if callsign[3:].isdigit() is False:
+            # sometimes, we see RGAIK
             continue
         records.append(
             {
