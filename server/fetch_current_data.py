@@ -125,9 +125,10 @@ def persist_flights(records: list[dict[str, object]]) -> int:
 
         # delete all history entries which are older than two weeks
         two_weeks_ago = datetime.datetime.utcnow() - datetime.timedelta(weeks=2)
+        two_weeks_ago_unix_timestamp = int(two_weeks_ago.timestamp())
         conn.execute(
             "DELETE FROM flights_history WHERE observed_at < ?",
-            (two_weeks_ago,),
+            (two_weeks_ago_unix_timestamp,),
         )
 
         conn.commit()
