@@ -46,6 +46,14 @@ def fetch_current_flights() -> list[dict[str, object]]:
 
     records: list[dict[str, object]] = []
     for flight in flights:
+        if getattr(flight, "callsign", None) is None:
+            continue
+        callsign = getattr(flight, "callsign", "")
+        if len(callsign) < 3:
+            continue
+        if callsign[:3] != AIRLINE_ICAO:
+            # sometimes, the callsign is the aircraft and not RGAXX
+            continue
         records.append(
             {
                 "timestamp": getattr(flight, "time", None),
@@ -113,6 +121,14 @@ def persist_flights(records: list[dict[str, object]]) -> int:
                 for record in filtered_records
             ],
         )
+
+        # delete all history entries which are older than two weeks
+        two_weeks_ago = datetime.datetime.utcnow() - datetime.timedelta(weeks=2)
+        conn.execute(
+            "DELETE FROM flights_history WHERE observed_at < ?",
+            (two_weeks_ago,),
+        )
+
         conn.commit()
     return len(filtered_records)
 
