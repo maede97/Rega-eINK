@@ -76,7 +76,7 @@ def require_valid_api_key(authorization: str | None) -> None:
 
 
 @app.get("/flights")
-def get_flights(limit: int = 100, authorization: str | None = Header(default=None)) -> JSONResponse:
+def get_flights(limit: int = 1000, authorization: str | None = Header(default=None)) -> JSONResponse:
     require_valid_api_key(authorization)
 
     if limit < 1:
