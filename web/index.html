@@ -1,1014 +1,1589 @@
 <!doctype html>
 <html lang="de">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width,initial-scale=1" />
-		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-		<meta name="application-name" content="REGA Tracker" />
-		<meta name="apple-mobile-web-app-title" content="REGA Tracker" />
-		<meta name="mobile-web-app-capable" content="yes" />
-		<link rel="apple-touch-icon" href="/favicon.ico" />
-		<title>REGA — Tracker</title>
-		<link rel="icon" href="/favicon.ico" />
-		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-		<style>
-			:root{
-				--rega-red:#d2232a;
-				--bg:#ffffff;
-				--muted:#6b6b6b;
-				--card:#f8f8f8;
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+	<meta name="application-name" content="REGA Tracker" />
+	<meta name="apple-mobile-web-app-title" content="REGA Tracker" />
+	<meta name="mobile-web-app-capable" content="yes" />
+	<link rel="apple-touch-icon" href="/favicon.ico" />
+	<title>REGA — Tracker</title>
+	<link rel="icon" href="/favicon.ico" />
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+	<style>
+		:root {
+			--rega-red: #d2232a;
+			--bg: #ffffff;
+			--muted: #6b6b6b;
+			--card: #f8f8f8;
+		}
+
+		html,
+		body,
+		#map {
+			height: 100%;
+		}
+
+		/* Prevent page scrolling; keep UI contained to one viewport */
+		body {
+			margin: 0;
+			font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+			color: #222;
+			background: var(--bg);
+			overflow: hidden;
+		}
+
+		/* Prevent horizontal overscroll/elastic drag on iOS and other browsers */
+		html,
+		body {
+			max-width: 100vw;
+			overflow-x: hidden;
+			-webkit-overflow-scrolling: touch;
+		}
+
+		/* Constrain mobile slide-over to viewport and disable horizontal panning */
+		.mobile-menu,
+		.mobile-menu-backdrop {
+			max-width: 100vw;
+			touch-action: pan-y;
+		}
+
+		header {
+			background: var(--rega-red);
+			color: white;
+			padding: 10px 16px;
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			justify-content: space-between
+		}
+
+		.logo {
+			display: flex;
+			align-items: center;
+			gap: 12px
+		}
+
+		.logo .shield {
+			width: 44px;
+			height: 44px;
+			background: white;
+			border-radius: 6px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: var(--rega-red);
+			font-weight: 700
+		}
+
+		/* Desktop layout: two-column container with side panel */
+		/* Reduced height so map + panels fit on a single page; no scrolling */
+		.container {
+			display: grid;
+			grid-template-columns: 1fr 360px;
+			gap: 12px;
+			padding: 12px;
+			height: calc(100vh - 140px);
+			overflow: hidden
+		}
+
+		.header-controls {
+			margin-left: auto;
+			display: flex;
+			align-items: center;
+			gap: 8px
+		}
+
+		.time-slider {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-left: 12px
+		}
+
+		/* Styled range to match header controls */
+		.time-slider input[type=range] {
+			-webkit-appearance: none;
+			appearance: none;
+			width: 260px;
+			height: 6px;
+			border-radius: 6px;
+			background: rgba(255, 255, 255, 0.18);
+			outline: none;
+		}
+
+		.time-slider input[type=range]::-webkit-slider-runnable-track {
+			height: 6px;
+			border-radius: 6px;
+			background: rgba(255, 255, 255, 0.18)
+		}
+
+		.time-slider input[type=range]::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			margin-top: -5px;
+			width: 16px;
+			height: 16px;
+			border-radius: 50%;
+			background: #fff;
+			border: 3px solid var(--rega-red);
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+		}
+
+		.time-slider input[type=range]::-moz-range-track {
+			height: 6px;
+			border-radius: 6px;
+			background: rgba(255, 255, 255, 0.18)
+		}
+
+		.time-slider input[type=range]::-moz-range-thumb {
+			width: 16px;
+			height: 16px;
+			border-radius: 50%;
+			background: #fff;
+			border: 3px solid var(--rega-red);
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12)
+		}
+
+		.time-slider input[type=range]::-ms-track {
+			height: 6px
+		}
+
+		.time-slider button.secondary {
+			height: 34px;
+			min-width: 34px;
+			padding: 6px 8px;
+			border-radius: 6px;
+			background: transparent;
+			color: white;
+			border: 1px solid rgba(255, 255, 255, 0.18)
+		}
+
+		.time-slider #playBtn {
+			font-weight: 600
+		}
+
+		.slider-time {
+			font-size: 13px;
+			color: rgba(255, 255, 255, 0.95);
+			min-width: 170px;
+			text-align: center
+		}
+
+		.header-controls input#start,
+		.header-controls input#end,
+		.header-controls input.flatpickr-input {
+			width: 170px;
+			padding: 6px;
+			border-radius: 6px;
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			background: rgba(255, 255, 255, 0.95);
+			color: #000
+		}
+
+		.header-controls button {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			height: 36px;
+			min-width: 36px;
+			padding: 6px 10px;
+			border-radius: 6px;
+			font-size: 13px;
+			line-height: 1
+		}
+
+		.header-controls .secondary {
+			background: transparent;
+			color: white;
+			border: 1px solid rgba(255, 255, 255, 0.18)
+		}
+
+		.header-controls select.secondary {
+			padding: 8px 10px;
+			border-radius: 6px;
+			background: transparent;
+			color: white;
+			border: 1px solid rgba(255, 255, 255, 0.18)
+		}
+
+		.header-controls button.live-active {
+			background: white;
+			color: var(--rega-red)
+		}
+
+		/* Desktop-specific: ensure Live button stays white when active (overrides global .active) */
+		@media (min-width:1631px) {
+
+			.header-controls button.live-active,
+			.header-controls button.live-active.active {
+				background: white !important;
+				color: var(--rega-red) !important;
+				border-color: rgba(255, 255, 255, 0.18) !important;
 			}
-			html,body,#map{height:100%;}
-			/* Prevent page scrolling; keep UI contained to one viewport */
-			body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;color:#222;background:var(--bg);overflow:hidden;} 
-			/* Prevent horizontal overscroll/elastic drag on iOS and other browsers */
-			html, body { max-width:100vw; overflow-x:hidden; -webkit-overflow-scrolling: touch; }
-			/* Constrain mobile slide-over to viewport and disable horizontal panning */
-			.mobile-menu, .mobile-menu-backdrop { max-width:100vw; touch-action: pan-y; }
-			header{background:var(--rega-red);color:white;padding:10px 16px;display:flex;align-items:center;gap:12px;justify-content:space-between}
-			.logo{display:flex;align-items:center;gap:12px}
-			.logo .shield{width:44px;height:44px;background:white;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--rega-red);font-weight:700}
-			
-			/* Desktop layout: two-column container with side panel */
-			/* Reduced height so map + panels fit on a single page; no scrolling */
-			.container{display:grid;grid-template-columns:1fr 360px;gap:12px;padding:12px;height:calc(100vh - 140px);overflow:hidden}
-			.header-controls{margin-left:auto;display:flex;align-items:center;gap:8px}
-			.time-slider{display:flex;align-items:center;gap:8px;margin-left:12px}
-			/* Styled range to match header controls */
-			.time-slider input[type=range]{
-				-webkit-appearance:none;appearance:none;
-				width:260px;height:6px;border-radius:6px;background:rgba(255,255,255,0.18);outline:none;
+
+			/* Desktop-specific: ensure Play/Pause button appears white when active */
+			.header-controls #playBtn.active {
+				background: white !important;
+				color: var(--rega-red) !important;
+				border-color: rgba(255, 255, 255, 0.18) !important;
 			}
-			.time-slider input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:rgba(255,255,255,0.18)}
-			.time-slider input[type=range]::-webkit-slider-thumb{
-				-webkit-appearance:none;margin-top:-5px;width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--rega-red);box-shadow:0 2px 6px rgba(0,0,0,0.12);
+		}
+
+		.panel {
+			background: var(--card);
+			border-radius: 8px;
+			padding: 8px;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+			display: flex;
+			flex-direction: column;
+			overflow: hidden
+		}
+
+		#map {
+			border-radius: 8px;
+			height: 100%;
+			max-height: 100%;
+			overflow: hidden
+		}
+
+		.controls {
+			display: flex;
+			flex-direction: column;
+			gap: 8px
+		}
+
+		label {
+			font-size: 12px;
+			color: var(--muted)
+		}
+
+		input[type=text] {
+			width: 100%;
+			padding: 8px;
+			border-radius: 6px;
+			border: 1px solid #ddd
+		}
+
+		.row {
+			display: flex;
+			gap: 8px
+		}
+
+		button {
+			background: var(--rega-red);
+			color: white;
+			border: 0;
+			padding: 10px 12px;
+			border-radius: 6px;
+			cursor: pointer
+		}
+
+		button.secondary {
+			background: #eee;
+			color: #222
+		}
+
+		.stats {
+			margin-top: 8px;
+			font-size: 14px
+		}
+
+		.list {
+			margin-top: 8px;
+			overflow: hidden;
+			padding: 6px;
+			background: white;
+			border-radius: 6px;
+			border: 1px solid #eee;
+			flex: 1
+		}
+
+		.flight-item {
+			padding: 6px;
+			border-bottom: 1px solid #f1f1f1
+		}
+
+		.muted {
+			color: var(--muted);
+			font-size: 12px
+		}
+
+		/* Modal */
+		.modal-backdrop {
+			position: fixed;
+			inset: 0;
+			background: rgba(0, 0, 0, 0.45);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 9999
+		}
+
+		.modal {
+			background: white;
+			padding: 20px;
+			border-radius: 8px;
+			max-width: 520px;
+			width: calc(100% - 40px);
+			box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+			box-sizing: border-box
+		}
+
+		.modal h2 {
+			margin: 0 0 8px 0
+		}
+
+		.modal input[type=text] {
+			width: 100%;
+			box-sizing: border-box
+		}
+
+		.modal-backdrop {
+			padding: 20px
+		}
+
+		footer {
+			position: fixed;
+			right: 16px;
+			bottom: 16px;
+			background: rgba(255, 255, 255, 0.9);
+			padding: 8px 12px;
+			border-radius: 999px;
+			border: 1px solid #eee;
+			font-size: 12px
+		}
+
+		@media (max-width:1630px) {
+			.container {
+				grid-template-columns: 1fr;
+				grid-auto-rows: 1fr;
+				height: calc(100vh - 120px);
+				padding: 6px;
+				overflow: hidden
 			}
-			.time-slider input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:rgba(255,255,255,0.18)}
-			.time-slider input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--rega-red);box-shadow:0 2px 6px rgba(0,0,0,0.12)}
-			.time-slider input[type=range]::-ms-track{height:6px}
-			.time-slider button.secondary{height:34px;min-width:34px;padding:6px 8px;border-radius:6px;background:transparent;color:white;border:1px solid rgba(255,255,255,0.18)}
-			.time-slider #playBtn{font-weight:600}
-			.slider-time{font-size:13px;color:rgba(255,255,255,0.95);min-width:170px;text-align:center}
-			.header-controls input#start, .header-controls input#end, .header-controls input.flatpickr-input {width:170px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.95);color:#000}
-			.header-controls button{display:inline-flex;align-items:center;justify-content:center;height:36px;min-width:36px;padding:6px 10px;border-radius:6px;font-size:13px;line-height:1}
-			.header-controls .secondary{background:transparent;color:white;border:1px solid rgba(255,255,255,0.18)}
-			.header-controls select.secondary{padding:8px 10px;border-radius:6px;background:transparent;color:white;border:1px solid rgba(255,255,255,0.18)}
-			.header-controls button.live-active{background:white;color:var(--rega-red)}
 
-			/* Desktop-specific: ensure Live button stays white when active (overrides global .active) */
-			@media (min-width:1631px){
-				.header-controls button.live-active,
-				.header-controls button.live-active.active {
-					background: white !important;
-					color: var(--rega-red) !important;
-					border-color: rgba(255,255,255,0.18) !important;
-				}
-
-				/* Desktop-specific: ensure Play/Pause button appears white when active */
-				.header-controls #playBtn.active {
-					background: white !important;
-					color: var(--rega-red) !important;
-					border-color: rgba(255,255,255,0.18) !important;
-				}
-			}
-			.panel{background:var(--card);border-radius:8px;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;overflow:hidden}
-			#map{border-radius:8px;height:100%;max-height:100%;overflow:hidden}
-			.controls{display:flex;flex-direction:column;gap:8px}
-			label{font-size:12px;color:var(--muted)}
-			input[type=text]{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd}
-			.row{display:flex;gap:8px}
-			button{background:var(--rega-red);color:white;border:0;padding:10px 12px;border-radius:6px;cursor:pointer}
-			button.secondary{background:#eee;color:#222}
-			.stats{margin-top:8px;font-size:14px}
-			.list{margin-top:8px;overflow:hidden;padding:6px;background:white;border-radius:6px;border:1px solid #eee;flex:1}
-			.flight-item{padding:6px;border-bottom:1px solid #f1f1f1}
-			.muted{color:var(--muted);font-size:12px}
-
-			/* Modal */
-			.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999}
-			.modal{background:white;padding:20px;border-radius:8px;max-width:520px;width:calc(100% - 40px);box-shadow:0 20px 60px rgba(0,0,0,0.3);box-sizing:border-box}
-			.modal h2{margin:0 0 8px 0}
-			.modal input[type=text]{width:100%;box-sizing:border-box}
-			.modal-backdrop{padding:20px}
-
-			footer{position:fixed;right:16px;bottom:16px;background:rgba(255,255,255,0.9);padding:8px 12px;border-radius:999px;border:1px solid #eee;font-size:12px}
-
-			@media (max-width:1630px){
-				.container{grid-template-columns:1fr;grid-auto-rows:1fr;height:calc(100vh - 120px);padding:6px;overflow:hidden}
-				/* hide the right-side list/stats panel on mobile to show only the map */
-				.container > .panel:nth-child(2){display:none}
-				/* keep header logo and hamburger on one row; hide header-controls (they live in the slide-over) */
-				header{padding:8px 10px;flex-direction:row;align-items:center}
-				.header-controls{display:none}
-				.header-controls{gap:6px;flex-wrap:wrap;align-items:center;width:100%;margin-top:8px}
-				.header-controls input#start, .header-controls input#end {width:140px;padding:6px}
-				.time-slider input[type=range]{width:140px}
-				.slider-time{min-width:80px;font-size:12px}
-				footer{left:12px;right:auto}
+			/* hide the right-side list/stats panel on mobile to show only the map */
+			.container>.panel:nth-child(2) {
+				display: none
 			}
 
-			/* Mobile hamburger + slide-over menu */
-			.hamburger{display:none;background:transparent;border:0;color:white;width:44px;height:44px;border-radius:8px;align-items:center;justify-content:center;cursor:pointer}
-			.hamburger .bar{display:block;width:20px;height:2px;background:white;border-radius:2px;position:relative}
-			.hamburger .bar:before,.hamburger .bar:after{content:'';position:absolute;left:0;width:20px;height:2px;background:white;border-radius:2px}
-			.hamburger .bar:before{top:-6px}
-			.hamburger .bar:after{top:6px}
-
-			@media (max-width:1630px){
-				.hamburger{display:inline-flex;margin-left:auto;margin-right:6px}
-				/* hide header controls in the header on mobile; controls live in the slide-over only */
-				header .header-controls{display:none}
-				/* hide fullscreen button entirely on mobile */
-				#fullscreenBtn{display:none !important}
+			/* keep header logo and hamburger on one row; hide header-controls (they live in the slide-over) */
+			header {
+				padding: 8px 10px;
+				flex-direction: row;
+				align-items: center
 			}
 
-			.mobile-menu-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;z-index:9998}
-			.mobile-menu{position:fixed;right:0;top:0;height:100%;width:320px;max-width:100%;background:var(--bg);color:var(--muted);box-shadow:-12px 0 30px rgba(0,0,0,0.2);padding:12px;box-sizing:border-box;transform:translateX(100vw);transition:transform 220ms ease-in-out;z-index:9999;display:flex;flex-direction:column;gap:8px}
-			/* account for iOS safe-area and avoid any horizontal overflow */
-			.mobile-menu{padding-right:calc(12px + env(safe-area-inset-right));padding-left:calc(12px + env(safe-area-inset-left));width: min(320px, calc(100% - 16px));}
-			.mobile-menu.open{transform:translateX(0)}
-			.mobile-menu{overflow-y:auto;-webkit-overflow-scrolling:touch}
-			.mobile-menu, .mobile-menu *{box-sizing:border-box}
-			.mobile-menu .close{align-self:flex-end;background:transparent;border:0;font-size:20px;padding:6px;cursor:pointer}
-			.mobile-menu .close{color:var(--rega-red)}
-			/* ensure header-controls are full width inside mobile menu */
-			.mobile-menu .header-controls{display:flex;flex-direction:column;align-items:stretch;gap:8px}
-			/* ensure inputs and buttons never exceed the slide-over width on small screens */
-			.mobile-menu .header-controls input,
-			.mobile-menu .header-controls select,
-			.mobile-menu .header-controls button,
-			.mobile-menu .time-slider,
-			.mobile-menu .time-slider input,
-			.mobile-menu .time-slider button { max-width:100%; box-sizing:border-box; }
-			.mobile-menu .header-controls input#start, .mobile-menu .header-controls input#end {width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;background:#fff;color:#000}
-			.mobile-menu .header-controls input.flatpickr-input{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;background:#fff;color:#000}
-
-			/* Ensure flatpickr popup is above the slide-over */
-			.flatpickr-calendar{z-index:12000}
-			.mobile-menu .header-controls select{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;background:#fff;color:#000}
-			.mobile-menu .header-controls .secondary{background:transparent;color:var(--rega-red);border:1px solid rgba(0,0,0,0.08)}
-			.mobile-menu .header-controls button{background:var(--rega-red);color:#fff;padding:8px 10px;height:34px;min-width:0;font-size:13px}
-			.mobile-menu #autoZoomWrap{margin-left:0}
-			.mobile-menu .time-slider{flex-direction:column;align-items:stretch}
-			.mobile-menu .time-slider input[type=range]{width:100%}
-			/* Mobile: make the timeslider red-themed to match inverted colors */
-			.mobile-menu .time-slider input[type=range]{
-				-webkit-appearance:none;appearance:none;height:6px;border-radius:6px;background:rgba(210,35,42,0.18);outline:none;
+			.header-controls {
+				display: none
 			}
-			.mobile-menu .time-slider input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:rgba(210,35,42,0.18)}
-			.mobile-menu .time-slider input[type=range]::-webkit-slider-thumb{
-				-webkit-appearance:none;margin-top:-5px;width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--rega-red);box-shadow:0 2px 6px rgba(0,0,0,0.06);
-			}
-			.mobile-menu .time-slider input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:rgba(210,35,42,0.18)}
-			.mobile-menu .time-slider input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--rega-red);box-shadow:0 2px 6px rgba(0,0,0,0.06)}
-			.mobile-menu .slider-time{color:var(--rega-red);font-weight:600}
-			.mobile-menu .slider-time{color:var(--muted);min-width:0;text-align:left}
-			.mobile-menu .stats{color:var(--muted)}
-			.header-controls #autoZoomWrap{color:white}
-			.mobile-menu #autoZoomWrap{color:var(--rega-red);font-size:13px;font-weight:600}
-			.mobile-menu #autoZoom{accent-color:var(--rega-red)}
-			/* Style auto-zoom checkbox to match other header inputs */
-			.header-controls #autoZoom{width:18px;height:18px;margin-right:8px;box-sizing:border-box;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:#fff;accent-color:#fff}
-			.header-controls #autoZoomWrap{align-items:center;display:inline-flex;gap:6px}
-			/* Mobile checkbox sizing + accent already set above; ensure consistent sizing */
-			.mobile-menu #autoZoom{width:18px;height:18px;margin-right:8px;border-radius:6px;box-sizing:border-box}
-			.mobile-menu .mobile-footer{margin-top:12px;color:var(--muted);font-size:12px;text-align:center;padding-top:8px;border-top:1px solid rgba(0,0,0,0.04);position:static !important;right:auto;bottom:auto}
 
-			/* persistent active state for toggled controls */
-			button.active{background:var(--rega-red) !important;color:#fff !important;border-color:transparent !important}
+			.header-controls {
+				gap: 6px;
+				flex-wrap: wrap;
+				align-items: center;
+				width: 100%;
+				margin-top: 8px
+			}
+
+			.header-controls input#start,
+			.header-controls input#end {
+				width: 140px;
+				padding: 6px
+			}
+
+			.time-slider input[type=range] {
+				width: 140px
+			}
+
+			.slider-time {
+				min-width: 80px;
+				font-size: 12px
+			}
+
+			footer {
+				left: 12px;
+				right: auto
+			}
+		}
+
+		/* Mobile hamburger + slide-over menu */
+		.hamburger {
+			display: none;
+			background: transparent;
+			border: 0;
+			color: white;
+			width: 44px;
+			height: 44px;
+			border-radius: 8px;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer
+		}
+
+		.hamburger .bar {
+			display: block;
+			width: 20px;
+			height: 2px;
+			background: white;
+			border-radius: 2px;
+			position: relative
+		}
+
+		.hamburger .bar:before,
+		.hamburger .bar:after {
+			content: '';
+			position: absolute;
+			left: 0;
+			width: 20px;
+			height: 2px;
+			background: white;
+			border-radius: 2px
+		}
+
+		.hamburger .bar:before {
+			top: -6px
+		}
+
+		.hamburger .bar:after {
+			top: 6px
+		}
+
+		@media (max-width:1630px) {
+			.hamburger {
+				display: inline-flex;
+				margin-left: auto;
+				margin-right: 6px
+			}
+
+			/* hide header controls in the header on mobile; controls live in the slide-over only */
+			header .header-controls {
+				display: none
+			}
+
+			/* hide fullscreen button entirely on mobile */
+			#fullscreenBtn {
+				display: none !important
+			}
+		}
+
+		.mobile-menu-backdrop {
+			position: fixed;
+			inset: 0;
+			background: rgba(0, 0, 0, 0.45);
+			display: none;
+			z-index: 9998
+		}
+
+		.mobile-menu {
+			position: fixed;
+			right: 0;
+			top: 0;
+			height: 100%;
+			width: 320px;
+			max-width: 100%;
+			background: var(--bg);
+			color: var(--muted);
+			box-shadow: -12px 0 30px rgba(0, 0, 0, 0.2);
+			padding: 12px;
+			box-sizing: border-box;
+			transform: translateX(100vw);
+			transition: transform 220ms ease-in-out;
+			z-index: 9999;
+			display: flex;
+			flex-direction: column;
+			gap: 8px
+		}
+
+		/* account for iOS safe-area and avoid any horizontal overflow */
+		.mobile-menu {
+			padding-right: calc(12px + env(safe-area-inset-right));
+			padding-left: calc(12px + env(safe-area-inset-left));
+			width: min(320px, calc(100% - 16px));
+		}
+
+		.mobile-menu.open {
+			transform: translateX(0)
+		}
+
+		.mobile-menu {
+			overflow-y: auto;
+			-webkit-overflow-scrolling: touch
+		}
+
+		.mobile-menu,
+		.mobile-menu * {
+			box-sizing: border-box
+		}
+
+		.mobile-menu .close {
+			align-self: flex-end;
+			background: transparent;
+			border: 0;
+			font-size: 20px;
+			padding: 6px;
+			cursor: pointer
+		}
+
+		.mobile-menu .close {
+			color: var(--rega-red)
+		}
+
+		/* ensure header-controls are full width inside mobile menu */
+		.mobile-menu .header-controls {
+			display: flex;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 8px
+		}
+
+		/* ensure inputs and buttons never exceed the slide-over width on small screens */
+		.mobile-menu .header-controls input,
+		.mobile-menu .header-controls select,
+		.mobile-menu .header-controls button,
+		.mobile-menu .time-slider,
+		.mobile-menu .time-slider input,
+		.mobile-menu .time-slider button {
+			max-width: 100%;
+			box-sizing: border-box;
+		}
+
+		.mobile-menu .header-controls input#start,
+		.mobile-menu .header-controls input#end {
+			width: 100%;
+			padding: 8px;
+			border-radius: 6px;
+			border: 1px solid #ddd;
+			background: #fff;
+			color: #000
+		}
+
+		.mobile-menu .header-controls input.flatpickr-input {
+			width: 100%;
+			padding: 8px;
+			border-radius: 6px;
+			border: 1px solid #ddd;
+			background: #fff;
+			color: #000
+		}
+
+		/* Ensure flatpickr popup is above the slide-over */
+		.flatpickr-calendar {
+			z-index: 12000
+		}
+
+		.mobile-menu .header-controls select {
+			width: 100%;
+			padding: 8px;
+			border-radius: 6px;
+			border: 1px solid #ddd;
+			background: #fff;
+			color: #000
+		}
+
+		.mobile-menu .header-controls .secondary {
+			background: transparent;
+			color: var(--rega-red);
+			border: 1px solid rgba(0, 0, 0, 0.08)
+		}
+
+		.mobile-menu .header-controls button {
+			background: var(--rega-red);
+			color: #fff;
+			padding: 8px 10px;
+			height: 34px;
+			min-width: 0;
+			font-size: 13px
+		}
+
+		.mobile-menu #autoZoomWrap {
+			margin-left: 0
+		}
+
+		.mobile-menu .time-slider {
+			flex-direction: column;
+			align-items: stretch
+		}
+
+		.mobile-menu .time-slider input[type=range] {
+			width: 100%
+		}
+
+		/* Mobile: make the timeslider red-themed to match inverted colors */
+		.mobile-menu .time-slider input[type=range] {
+			-webkit-appearance: none;
+			appearance: none;
+			height: 6px;
+			border-radius: 6px;
+			background: rgba(210, 35, 42, 0.18);
+			outline: none;
+		}
+
+		.mobile-menu .time-slider input[type=range]::-webkit-slider-runnable-track {
+			height: 6px;
+			border-radius: 6px;
+			background: rgba(210, 35, 42, 0.18)
+		}
+
+		.mobile-menu .time-slider input[type=range]::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			margin-top: -5px;
+			width: 16px;
+			height: 16px;
+			border-radius: 50%;
+			background: #fff;
+			border: 3px solid var(--rega-red);
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+		}
+
+		.mobile-menu .time-slider input[type=range]::-moz-range-track {
+			height: 6px;
+			border-radius: 6px;
+			background: rgba(210, 35, 42, 0.18)
+		}
+
+		.mobile-menu .time-slider input[type=range]::-moz-range-thumb {
+			width: 16px;
+			height: 16px;
+			border-radius: 50%;
+			background: #fff;
+			border: 3px solid var(--rega-red);
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06)
+		}
+
+		.mobile-menu .slider-time {
+			color: var(--rega-red);
+			font-weight: 600
+		}
+
+		.mobile-menu .slider-time {
+			color: var(--muted);
+			min-width: 0;
+			text-align: left
+		}
+
+		.mobile-menu .stats {
+			color: var(--muted)
+		}
+
+		.header-controls #autoZoomWrap {
+			color: white
+		}
+
+		.mobile-menu #autoZoomWrap {
+			color: var(--rega-red);
+			font-size: 13px;
+			font-weight: 600
+		}
+
+		.mobile-menu #autoZoom {
+			accent-color: var(--rega-red)
+		}
+
+		/* Style auto-zoom checkbox to match other header inputs */
+		.header-controls #autoZoom {
+			width: 18px;
+			height: 18px;
+			margin-right: 8px;
+			box-sizing: border-box;
+			border-radius: 6px;
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			background: #fff;
+			accent-color: #fff
+		}
+
+		.header-controls #autoZoomWrap {
+			align-items: center;
+			display: inline-flex;
+			gap: 6px
+		}
+
+		/* Mobile checkbox sizing + accent already set above; ensure consistent sizing */
+		.mobile-menu #autoZoom {
+			width: 18px;
+			height: 18px;
+			margin-right: 8px;
+			border-radius: 6px;
+			box-sizing: border-box
+		}
+
+		.mobile-menu .mobile-footer {
+			margin-top: 12px;
+			color: var(--muted);
+			font-size: 12px;
+			text-align: center;
+			padding-top: 8px;
+			border-top: 1px solid rgba(0, 0, 0, 0.04);
+			position: static !important;
+			right: auto;
+			bottom: auto
+		}
+
+		/* persistent active state for toggled controls */
+		button.active {
+			background: var(--rega-red) !important;
+			color: #fff !important;
+			border-color: transparent !important
+		}
 
 
-			/* Pseudo-fullscreen fallback for mobile browsers without Fullscreen API */
-			body.pseudo-fullscreen header,
-			body.pseudo-fullscreen .container > .panel:nth-child(2),
-			body.pseudo-fullscreen footer,
-			body.pseudo-fullscreen .modal-backdrop {
-				display:none !important;
-			}
-			body.pseudo-fullscreen #map{
-				position:fixed !important;
-				inset:0 !important;
-				width:100% !important;
-				height:100% !important;
-				border-radius:0 !important;
-				z-index:2147483647 !important;
-			}
-		</style>
-	</head>
-	<body>
-		<header>
-			<div class="logo">
-				<div class="shield">REGA</div>
-				<div>
-					<div class="title">REGA Flugverlauf</div>
+		/* Pseudo-fullscreen fallback for mobile browsers without Fullscreen API */
+		body.pseudo-fullscreen header,
+		body.pseudo-fullscreen .container>.panel:nth-child(2),
+		body.pseudo-fullscreen footer,
+		body.pseudo-fullscreen .modal-backdrop {
+			display: none !important;
+		}
+
+		body.pseudo-fullscreen #map {
+			position: fixed !important;
+			inset: 0 !important;
+			width: 100% !important;
+			height: 100% !important;
+			border-radius: 0 !important;
+			z-index: 2147483647 !important;
+		}
+
+		/* Callsign label styling for leaflet permanent tooltips */
+		.leaflet-tooltip.callsign-label {
+			background: white;
+			border: none;
+			color: #d2232a;
+			/* fixed red to ensure visibility */
+			font-weight: 700;
+			padding: 0 6px;
+			text-shadow: 0 1px 0 #fff;
+			font-size: 13px;
+		}
+	</style>
+</head>
+
+<body>
+	<header>
+		<div class="logo">
+			<div class="shield">REGA</div>
+			<div>
+				<div class="title">REGA Flugverlauf</div>
+			</div>
+		</div>
+		<div class="header-controls">
+			<input id="start" type="text" placeholder="Start" />
+			<input id="end" type="text" placeholder="Ende" />
+			<button id="fetchBtn" class="secondary">Abrufen</button>
+			<select id="presetSelect" class="secondary" aria-label="Schnelle Auswahl">
+				<option value="">Voreinstellungen</option>
+				<option value="300">5 Minuten</option>
+				<option value="900">15 Minuten</option>
+				<option value="1800">30 Minuten</option>
+				<option value="3600">1 Stunde</option>
+				<option value="21600">6 Stunden</option>
+				<option value="86400">24 Stunden</option>
+				<option value="604800">7 Tage</option>
+			</select>
+			<button id="liveBtn" class="secondary" data-toggle-state="true">Live</button>
+			<label id="autoZoomWrap" style="align-items:center;gap:6px;margin-left:6px;display:inline-flex">
+				<input id="autoZoom" type="checkbox" style="width:16px;height:16px;margin-right:6px" />Auto-Zoom
+			</label>
+			<div class="time-slider">
+				<input id="timeSlider" type="range" min="0" max="100" step="60" />
+				<button id="speedDown" class="secondary" aria-label="Langsamer">−</button>
+				<button id="playBtn" class="secondary" aria-label="Play" data-toggle-state="true">▶</button>
+				<button id="speedUp" class="secondary" aria-label="Schneller">+</button>
+				<div id="speedLabel" class="slider-time" style="min-width:36px;text-align:center;margin-left:6px">1x
 				</div>
+				<div id="sliderTime" class="slider-time">—</div>
 			</div>
-			<div class="header-controls">
-				<input id="start" type="text" placeholder="Start" />
-				<input id="end" type="text" placeholder="Ende" />
-				<button id="fetchBtn" class="secondary">Abrufen</button>
-				<select id="presetSelect" class="secondary" aria-label="Schnelle Auswahl">
-					<option value="">Voreinstellungen</option>
-					<option value="300">5 Minuten</option>
-					<option value="900">15 Minuten</option>
-					<option value="1800">30 Minuten</option>
-					<option value="3600">1 Stunde</option>
-					<option value="21600">6 Stunden</option>
-					<option value="86400">24 Stunden</option>
-					<option value="604800">7 Tage</option>
-				</select>
-				<button id="liveBtn" class="secondary" data-toggle-state="true">Live</button>
-				<label id="autoZoomWrap" style="align-items:center;gap:6px;margin-left:6px;display:inline-flex">
-					<input id="autoZoom" type="checkbox" style="width:16px;height:16px;margin-right:6px" />Auto-Zoom
-				</label>
-				<div class="time-slider">
-					<input id="timeSlider" type="range" min="0" max="100" step="60" />
-					<button id="speedDown" class="secondary" aria-label="Langsamer">−</button>
-					<button id="playBtn" class="secondary" aria-label="Play" data-toggle-state="true">▶</button>
-					<button id="speedUp" class="secondary" aria-label="Schneller">+</button>
-					<div id="speedLabel" class="slider-time" style="min-width:36px;text-align:center;margin-left:6px">1x</div>
-					<div id="sliderTime" class="slider-time">—</div>
-				</div>
-				<button id="fullscreenBtn" class="secondary">Vollbild</button>
-			</div>
-			<!-- mobile menu button placed at end so it sits on the right side of the header -->
-			<button id="menuBtn" class="hamburger" aria-label="Menü">
-				<span class="bar"></span>
-			</button>
-		</header>
+			<button id="fullscreenBtn" class="secondary">Vollbild</button>
+		</div>
+		<!-- mobile menu button placed at end so it sits on the right side of the header -->
+		<button id="menuBtn" class="hamburger" aria-label="Menü">
+			<span class="bar"></span>
+		</button>
+	</header>
 
-		<div class="container">
-			<div class="panel">
-				<div id="map" style="flex:1"></div>
-			</div>
+	<div class="container">
+		<div class="panel">
+			<div id="map" style="flex:1"></div>
+		</div>
 
-			<div class="panel">
-				<div style="display:flex;flex-direction:column;gap:8px">
-					<div class="stats" id="stats">Keine Daten geladen</div>
-					<div class="list" id="list"></div>
-					<div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-						<button id="clearKey" class="secondary">API-Schlüssel ändern</button>
-						<div class="muted" style="flex:1;text-align:right">Daten älter als zwei Wochen sind nicht verfügbar.</div>
+		<div class="panel">
+			<div style="display:flex;flex-direction:column;gap:8px">
+				<div class="stats" id="stats">Keine Daten geladen</div>
+				<div class="list" id="list"></div>
+				<div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+					<button id="clearKey" class="secondary">API-Schlüssel ändern</button>
+					<div class="muted" style="flex:1;text-align:right">Daten älter als zwei Wochen sind nicht verfügbar.
 					</div>
 				</div>
 			</div>
 		</div>
+	</div>
 
-		<!-- Mobile slide-over menu (reuses header-controls by moving it into this panel on small screens) -->
-		<div id="mobileMenuBackdrop" class="mobile-menu-backdrop" role="dialog" aria-hidden="true">
-			<div id="mobileMenu" class="mobile-menu" role="document">
-				<button id="mobileMenuClose" class="close" aria-label="Schliessen">✕</button>
-				<!-- header-controls will be moved here on mobile -->
+	<!-- Mobile slide-over menu (reuses header-controls by moving it into this panel on small screens) -->
+	<div id="mobileMenuBackdrop" class="mobile-menu-backdrop" role="dialog" aria-hidden="true">
+		<div id="mobileMenu" class="mobile-menu" role="document">
+			<button id="mobileMenuClose" class="close" aria-label="Schliessen">✕</button>
+			<!-- header-controls will be moved here on mobile -->
+		</div>
+	</div>
+
+	<footer>Bereitgestellt von Flightradar24 via rega.hueppis.com</footer>
+
+	<div id="keyModal" class="modal-backdrop" style="display:none">
+		<div class="modal">
+			<h2>API-Schlüssel eingeben</h2>
+			<div class="hint">Fügen Sie Ihren API-Schlüssel ein, um auf die REGA-Flugdaten zuzugreifen. Lokal im Browser
+				gespeichert.</div>
+			<input id="apiKeyInput" type="text"
+				style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:12px"
+				placeholder="Bearer token..." />
+			<div style="display:flex;gap:8px;justify-content:flex-end">
+				<button id="saveKey">Speichern</button>
 			</div>
 		</div>
+	</div>
 
-		<footer>Bereitgestellt von Flightradar24 via rega.hueppis.com</footer>
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+	<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+	<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js"></script>
+	<script>
+		const API_BASE = 'https://rega.hueppis.com/flights/range';
+		const MAX_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
-		<div id="keyModal" class="modal-backdrop" style="display:none">
-			<div class="modal">
-				<h2>API-Schlüssel eingeben</h2>
-				<div class="hint">Fügen Sie Ihren API-Schlüssel ein, um auf die REGA-Flugdaten zuzugreifen. Lokal im Browser gespeichert.</div>
-				<input id="apiKeyInput" type="text" style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:12px" placeholder="Bearer token..." />
-				<div style="display:flex;gap:8px;justify-content:flex-end">
-					<button id="saveKey">Speichern</button>
-				</div>
-			</div>
-		</div>
+		const map = L.map('map', { zoomControl: true }).setView([46.8, 8.2], 8);
+		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
 
-		<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
-		<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-		<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js"></script>
-		<script>
-			const API_BASE = 'https://rega.hueppis.com/flights/range';
-			const MAX_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+		const markersLayer = L.layerGroup().addTo(map);
+		const fullPathsLayer = L.layerGroup().addTo(map);
+		const progressPathsLayer = L.layerGroup().addTo(map);
+		let flightData = {};
+		const slider = document.getElementById('timeSlider');
+		const sliderTimeLabel = document.getElementById('sliderTime');
 
-			const map = L.map('map', {zoomControl:true}).setView([46.8,8.2],8);
-			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
-
-			const markersLayer = L.layerGroup().addTo(map);
-			const fullPathsLayer = L.layerGroup().addTo(map);
-			const progressPathsLayer = L.layerGroup().addTo(map);
-			let flightData = {};
-			const slider = document.getElementById('timeSlider');
-			const sliderTimeLabel = document.getElementById('sliderTime');
-
-			function formatSwiss(ts, withSeconds=false){
-				if(!ts) return '—';
-				const d = new Date(ts*1000);
-				const pad = (n)=>String(n).padStart(2,'0');
-				const dd = pad(d.getDate());
-				const MM = pad(d.getMonth()+1);
-				const yyyy = d.getFullYear();
-				const hh = pad(d.getHours());
-				const mm = pad(d.getMinutes());
-				if(withSeconds){
-					const ss = pad(d.getSeconds());
-					return `${dd}.${MM}.${yyyy} ${hh}:${mm}:${ss}`;
-				}
-				return `${dd}.${MM}.${yyyy} ${hh}:${mm}`;
+		function formatSwiss(ts, withSeconds = false) {
+			if (!ts) return '—';
+			const d = new Date(ts * 1000);
+			const pad = (n) => String(n).padStart(2, '0');
+			const dd = pad(d.getDate());
+			const MM = pad(d.getMonth() + 1);
+			const yyyy = d.getFullYear();
+			const hh = pad(d.getHours());
+			const mm = pad(d.getMinutes());
+			if (withSeconds) {
+				const ss = pad(d.getSeconds());
+				return `${dd}.${MM}.${yyyy} ${hh}:${mm}:${ss}`;
 			}
+			return `${dd}.${MM}.${yyyy} ${hh}:${mm}`;
+		}
 
-			// flatpickr instances for consistent Swiss format: dd.mm.yyyy HH:MM
+		// flatpickr instances for consistent Swiss format: dd.mm.yyyy HH:MM
 
-			let lastPresetRange = null; // { startUnix, endUnix, ts }
-			let fpStart = null, fpEnd = null;
-			const fpOptions = { enableTime:true, time_24hr:true, dateFormat:'d.m.Y H:i', locale: 'de', minuteIncrement:1, allowInput:true };
-			try{
-				fpStart = flatpickr('#start', fpOptions);
-				fpEnd = flatpickr('#end', fpOptions);
-                
-			}catch(e){ console.warn('flatpickr init failed, falling back to text inputs', e); }
+		let lastPresetRange = null; // { startUnix, endUnix, ts }
+		let fpStart = null, fpEnd = null;
+		const fpOptions = { enableTime: true, time_24hr: true, dateFormat: 'd.m.Y H:i', locale: 'de', minuteIncrement: 1, allowInput: true };
+		try {
+			fpStart = flatpickr('#start', fpOptions);
+			fpEnd = flatpickr('#end', fpOptions);
 
-			function showModal(show){
-				document.getElementById('keyModal').style.display = show ? 'flex' : 'none';
+		} catch (e) { console.warn('flatpickr init failed, falling back to text inputs', e); }
+
+		function showModal(show) {
+			document.getElementById('keyModal').style.display = show ? 'flex' : 'none';
+		}
+
+		function loadApiKey() {
+			return localStorage.getItem('rega_api_key') || '';
+		}
+
+		function saveApiKey(k) {
+			localStorage.setItem('rega_api_key', k);
+		}
+
+		function clearApiKey() {
+			localStorage.removeItem('rega_api_key');
+			showModal(true);
+		}
+
+		document.getElementById('saveKey').addEventListener('click', () => {
+			const v = document.getElementById('apiKeyInput').value.trim();
+			if (!v) { alert('Bitte API-Schlüssel eingeben'); return; }
+			saveApiKey(v);
+			showModal(false);
+		});
+
+		document.getElementById('clearKey').addEventListener('click', () => {
+			clearApiKey();
+		});
+
+		// initialize time inputs with sensible defaults
+		function setDefaults() {
+			const now = new Date();
+			const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+			if (fpEnd) fpEnd.setDate(now, true);
+			else { const endEl = document.getElementById('end'); endEl.value = toSwissLocal(now); endEl.dispatchEvent(new Event('input', { bubbles: true })); endEl.dispatchEvent(new Event('change', { bubbles: true })); }
+			if (fpStart) fpStart.setDate(oneHourAgo, true);
+			else { const startEl = document.getElementById('start'); startEl.value = toSwissLocal(oneHourAgo); startEl.dispatchEvent(new Event('input', { bubbles: true })); startEl.dispatchEvent(new Event('change', { bubbles: true })); }
+		}
+
+		function toSwissLocal(d) {
+			const pad = (n) => String(n).padStart(2, '0');
+			const yyyy = d.getFullYear();
+			const MM = pad(d.getMonth() + 1);
+			const dd = pad(d.getDate());
+			const hh = pad(d.getHours());
+			const mm = pad(d.getMinutes());
+			return `${dd}.${MM}.${yyyy} ${hh}:${mm}`;
+		}
+
+		function fromInputToUnix(fpInstance, inputEl) {
+			// prefer flatpickr selected date when available
+			if (fpInstance && fpInstance.selectedDates && fpInstance.selectedDates.length) {
+				const v = Math.floor(fpInstance.selectedDates[0].getTime() / 1000);
+				return v;
 			}
-
-			function loadApiKey(){
-				return localStorage.getItem('rega_api_key') || '';
-			}
-
-			function saveApiKey(k){
-				localStorage.setItem('rega_api_key', k);
-			}
-
-			function clearApiKey(){
-				localStorage.removeItem('rega_api_key');
-				showModal(true);
-			}
-
-			document.getElementById('saveKey').addEventListener('click', ()=>{
-				const v = document.getElementById('apiKeyInput').value.trim();
-				if(!v){ alert('Bitte API-Schlüssel eingeben'); return; }
-				saveApiKey(v);
-				showModal(false);
-			});
-
-			document.getElementById('clearKey').addEventListener('click', ()=>{
-				clearApiKey();
-			});
-
-			// initialize time inputs with sensible defaults
-			function setDefaults(){
-				const now = new Date();
-				const oneHourAgo = new Date(now.getTime() - 60*60*1000);
-				if(fpEnd) fpEnd.setDate(now, true);
-				else { const endEl = document.getElementById('end'); endEl.value = toSwissLocal(now); endEl.dispatchEvent(new Event('input',{bubbles:true})); endEl.dispatchEvent(new Event('change',{bubbles:true})); }
-				if(fpStart) fpStart.setDate(oneHourAgo, true);
-				else { const startEl = document.getElementById('start'); startEl.value = toSwissLocal(oneHourAgo); startEl.dispatchEvent(new Event('input',{bubbles:true})); startEl.dispatchEvent(new Event('change',{bubbles:true})); }
-			}
-
-			function toSwissLocal(d){
-				const pad=(n)=>String(n).padStart(2,'0');
-				const yyyy=d.getFullYear();
-				const MM=pad(d.getMonth()+1);
-				const dd=pad(d.getDate());
-				const hh=pad(d.getHours());
-				const mm=pad(d.getMinutes());
-				return `${dd}.${MM}.${yyyy} ${hh}:${mm}`;
-			}
-
-			function fromInputToUnix(fpInstance, inputEl){
-				// prefer flatpickr selected date when available
-				if(fpInstance && fpInstance.selectedDates && fpInstance.selectedDates.length){
-					const v = Math.floor(fpInstance.selectedDates[0].getTime()/1000);
-					return v;
-				}
-				// If flatpickr instance exists but hasn't populated selectedDates yet
-				// (race after setDate), try to parse the input value using
-				// flatpickr's parseDate helper as a fallback.
-				if(fpInstance && (!fpInstance.selectedDates || fpInstance.selectedDates.length===0) && inputEl && inputEl.value){
-					try{
-						if(typeof flatpickr !== 'undefined' && flatpickr.parseDate){
-							const parsed = flatpickr.parseDate(inputEl.value, 'd.m.Y H:i');
-							if(parsed instanceof Date && !isNaN(parsed.getTime())){
-								const v = Math.floor(parsed.getTime()/1000);
-								return v;
-							}
+			// If flatpickr instance exists but hasn't populated selectedDates yet
+			// (race after setDate), try to parse the input value using
+			// flatpickr's parseDate helper as a fallback.
+			if (fpInstance && (!fpInstance.selectedDates || fpInstance.selectedDates.length === 0) && inputEl && inputEl.value) {
+				try {
+					if (typeof flatpickr !== 'undefined' && flatpickr.parseDate) {
+						const parsed = flatpickr.parseDate(inputEl.value, 'd.m.Y H:i');
+						if (parsed instanceof Date && !isNaN(parsed.getTime())) {
+							const v = Math.floor(parsed.getTime() / 1000);
+							return v;
 						}
-					}catch(e){}
-				}
-				// fallback: parse Swiss format dd.mm.yyyy HH:MM
-				const v = (inputEl && inputEl.value) || '';
-				const m = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$/);
-				if(!m) return NaN;
-				const dd = Number(m[1]), MM = Number(m[2])-1, yyyy = Number(m[3]), hh = Number(m[4]), mm = Number(m[5]);
-				const out = Math.floor(new Date(yyyy, MM, dd, hh, mm).getTime()/1000);
-				return out;
-			}
-
-			function enforceLimits(){
-				const now = new Date();
-				const minDate = new Date(now.getTime() - MAX_LOOKBACK_MS);
-				if(fpStart){ fpStart.set('maxDate', now); fpStart.set('minDate', minDate); }
-				if(fpEnd){ fpEnd.set('maxDate', now); fpEnd.set('minDate', minDate); }
-				// ensure start not older than 14d
-				if(fpStart && fpStart.selectedDates && fpStart.selectedDates.length && fpStart.selectedDates[0] < minDate){ fpStart.setDate(minDate, true); }
-				else if(!fpStart){ const startEl = document.getElementById('start'); if(new Date(startEl.value) < minDate) { startEl.value = toSwissLocal(minDate); startEl.dispatchEvent(new Event('input',{bubbles:true})); startEl.dispatchEvent(new Event('change',{bubbles:true})); } }
-				if(fpEnd && fpEnd.selectedDates && fpEnd.selectedDates.length && fpEnd.selectedDates[0] > now){ fpEnd.setDate(now, true); }
-				else if(!fpEnd){ const endEl = document.getElementById('end'); if(new Date(endEl.value) > now) { endEl.value = toSwissLocal(now); endEl.dispatchEvent(new Event('input',{bubbles:true})); endEl.dispatchEvent(new Event('change',{bubbles:true})); } }
-				if(fpStart && fpEnd && fpStart.selectedDates.length && fpEnd.selectedDates.length && fpStart.selectedDates[0].getTime() >= fpEnd.selectedDates[0].getTime()){
-					const e = fpEnd.selectedDates[0];
-					const s = new Date(e.getTime() - 60*60*1000);
-					fpStart.setDate(s, true);
-				} else if(!fpStart && !fpEnd){
-					const startEl = document.getElementById('start'); const endEl = document.getElementById('end');
-					if(new Date(startEl.value) >= new Date(endEl.value)){
-						const e = new Date(endEl.value);
-						const s = new Date(e.getTime() - 60*60*1000);
-						startEl.value = toSwissLocal(s);
-						startEl.dispatchEvent(new Event('input',{bubbles:true})); startEl.dispatchEvent(new Event('change',{bubbles:true}));
 					}
+				} catch (e) { }
+			}
+			// fallback: parse Swiss format dd.mm.yyyy HH:MM
+			const v = (inputEl && inputEl.value) || '';
+			const m = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$/);
+			if (!m) return NaN;
+			const dd = Number(m[1]), MM = Number(m[2]) - 1, yyyy = Number(m[3]), hh = Number(m[4]), mm = Number(m[5]);
+			const out = Math.floor(new Date(yyyy, MM, dd, hh, mm).getTime() / 1000);
+			return out;
+		}
+
+		function enforceLimits() {
+			const now = new Date();
+			const minDate = new Date(now.getTime() - MAX_LOOKBACK_MS);
+			if (fpStart) { fpStart.set('maxDate', now); fpStart.set('minDate', minDate); }
+			if (fpEnd) { fpEnd.set('maxDate', now); fpEnd.set('minDate', minDate); }
+			// ensure start not older than 14d
+			if (fpStart && fpStart.selectedDates && fpStart.selectedDates.length && fpStart.selectedDates[0] < minDate) { fpStart.setDate(minDate, true); }
+			else if (!fpStart) { const startEl = document.getElementById('start'); if (new Date(startEl.value) < minDate) { startEl.value = toSwissLocal(minDate); startEl.dispatchEvent(new Event('input', { bubbles: true })); startEl.dispatchEvent(new Event('change', { bubbles: true })); } }
+			if (fpEnd && fpEnd.selectedDates && fpEnd.selectedDates.length && fpEnd.selectedDates[0] > now) { fpEnd.setDate(now, true); }
+			else if (!fpEnd) { const endEl = document.getElementById('end'); if (new Date(endEl.value) > now) { endEl.value = toSwissLocal(now); endEl.dispatchEvent(new Event('input', { bubbles: true })); endEl.dispatchEvent(new Event('change', { bubbles: true })); } }
+			if (fpStart && fpEnd && fpStart.selectedDates.length && fpEnd.selectedDates.length && fpStart.selectedDates[0].getTime() >= fpEnd.selectedDates[0].getTime()) {
+				const e = fpEnd.selectedDates[0];
+				const s = new Date(e.getTime() - 60 * 60 * 1000);
+				fpStart.setDate(s, true);
+			} else if (!fpStart && !fpEnd) {
+				const startEl = document.getElementById('start'); const endEl = document.getElementById('end');
+				if (new Date(startEl.value) >= new Date(endEl.value)) {
+					const e = new Date(endEl.value);
+					const s = new Date(e.getTime() - 60 * 60 * 1000);
+					startEl.value = toSwissLocal(s);
+					startEl.dispatchEvent(new Event('input', { bubbles: true })); startEl.dispatchEvent(new Event('change', { bubbles: true }));
 				}
 			}
+		}
 
-			document.getElementById('presetSelect').addEventListener('change', (e)=>{
-				const v = Number(e.target.value);
-				if(v>0) setRangeRelative(v);
-			});
+		document.getElementById('presetSelect').addEventListener('change', (e) => {
+			const v = Number(e.target.value);
+			if (v > 0) setRangeRelative(v);
+		});
 
 
-			function setRangeRelative(seconds){
+		function setRangeRelative(seconds) {
 
-				// Switching to a preset means leaving Live mode first.
-				if(liveInterval) stopLive();
+			// Switching to a preset means leaving Live mode first.
+			if (liveInterval) stopLive();
 
-				const end = new Date();
-				const start = new Date(end.getTime() - seconds * 1000);
-				const minDate = new Date(end.getTime() - MAX_LOOKBACK_MS);
+			const end = new Date();
+			const start = new Date(end.getTime() - seconds * 1000);
+			const minDate = new Date(end.getTime() - MAX_LOOKBACK_MS);
 
-				if(start < minDate) start.setTime(minDate.getTime());
+			if (start < minDate) start.setTime(minDate.getTime());
 
-				// Let Flatpickr manage its own input value.
-				if(fpEnd){
-					fpEnd.setDate(end, true);
-					try{ if(fpEnd.selectedDates) fpEnd.selectedDates = [end]; }catch(e){}
-					// record unix fallback in case flatpickr/DOM are briefly out-of-sync
-					try{
-						lastPresetRange = { startUnix: Math.floor(start.getTime()/1000), endUnix: Math.floor(end.getTime()/1000), ts: Date.now() };
-					}catch(e){}
-					try{ fpEnd.input.value = toSwissLocal(end); }catch(e){}
-					// also update the underlying input element and fire events to keep
-					// `fromInputToUnix` parsing robust in case flatpickr hasn't populated
-					// `selectedDates` yet (race conditions after live updates).
-					const endEl = document.getElementById('end');
-					endEl.value = toSwissLocal(end);
-					endEl.dispatchEvent(new Event('input',{bubbles:true}));
-					endEl.dispatchEvent(new Event('change',{bubbles:true}));
-				} else {
-					document.getElementById('end').value = toSwissLocal(end);
-				}
-
-				if(fpStart){
-					fpStart.setDate(start, true);
-					try{ if(fpStart.selectedDates) fpStart.selectedDates = [start]; }catch(e){}
-					try{ fpStart.input.value = toSwissLocal(start); }catch(e){}
-					const startEl = document.getElementById('start');
-					startEl.value = toSwissLocal(start);
-					startEl.dispatchEvent(new Event('input',{bubbles:true}));
-					startEl.dispatchEvent(new Event('change',{bubbles:true}));
-				} else {
-					document.getElementById('start').value = toSwissLocal(start);
-				}
-				// Auto-fetch data for this preset shortly after switching
-				setTimeout(()=>{ try{ fetchAndRender(); }catch(e){ console.warn('preset auto-fetch failed', e); } }, 50);
+			// Let Flatpickr manage its own input value.
+			if (fpEnd) {
+				fpEnd.setDate(end, true);
+				try { if (fpEnd.selectedDates) fpEnd.selectedDates = [end]; } catch (e) { }
+				// record unix fallback in case flatpickr/DOM are briefly out-of-sync
+				try {
+					lastPresetRange = { startUnix: Math.floor(start.getTime() / 1000), endUnix: Math.floor(end.getTime() / 1000), ts: Date.now() };
+				} catch (e) { }
+				try { fpEnd.input.value = toSwissLocal(end); } catch (e) { }
+				// also update the underlying input element and fire events to keep
+				// `fromInputToUnix` parsing robust in case flatpickr hasn't populated
+				// `selectedDates` yet (race conditions after live updates).
+				const endEl = document.getElementById('end');
+				endEl.value = toSwissLocal(end);
+				endEl.dispatchEvent(new Event('input', { bubbles: true }));
+				endEl.dispatchEvent(new Event('change', { bubbles: true }));
+			} else {
+				document.getElementById('end').value = toSwissLocal(end);
 			}
 
-			document.getElementById('fetchBtn').addEventListener('click', fetchAndRender);
+			if (fpStart) {
+				fpStart.setDate(start, true);
+				try { if (fpStart.selectedDates) fpStart.selectedDates = [start]; } catch (e) { }
+				try { fpStart.input.value = toSwissLocal(start); } catch (e) { }
+				const startEl = document.getElementById('start');
+				startEl.value = toSwissLocal(start);
+				startEl.dispatchEvent(new Event('input', { bubbles: true }));
+				startEl.dispatchEvent(new Event('change', { bubbles: true }));
+			} else {
+				document.getElementById('start').value = toSwissLocal(start);
+			}
+			// Auto-fetch data for this preset shortly after switching
+			setTimeout(() => { try { fetchAndRender(); } catch (e) { console.warn('preset auto-fetch failed', e); } }, 50);
+		}
 
-			async function fetchAndRender(){
-				enforceLimits();
-				const apiKey = loadApiKey();
-				if(!apiKey){ showModal(true); return; }
-				let start = fromInputToUnix(fpStart, document.getElementById('start'));
-				let end = fromInputToUnix(fpEnd, document.getElementById('end'));
-                
-				if(!Number.isFinite(start) || !Number.isFinite(end) || isNaN(start) || isNaN(end)){
-					// Try short-lived preset fallback recorded by setRangeRelative
-					const FALLBACK_MS = 15_000; // allow a slightly longer fallback window
-					if(lastPresetRange && (Date.now() - lastPresetRange.ts) < FALLBACK_MS){
-						if(!Number.isFinite(start) || isNaN(start)) start = lastPresetRange.startUnix;
-						if(!Number.isFinite(end) || isNaN(end)) end = lastPresetRange.endUnix;
-						console.warn('Using lastPresetRange fallback', lastPresetRange);
-						// clear after use
+		document.getElementById('fetchBtn').addEventListener('click', fetchAndRender);
+
+		async function fetchAndRender() {
+			enforceLimits();
+			const apiKey = loadApiKey();
+			if (!apiKey) { showModal(true); return; }
+			let start = fromInputToUnix(fpStart, document.getElementById('start'));
+			let end = fromInputToUnix(fpEnd, document.getElementById('end'));
+
+			if (!Number.isFinite(start) || !Number.isFinite(end) || isNaN(start) || isNaN(end)) {
+				// Try short-lived preset fallback recorded by setRangeRelative
+				const FALLBACK_MS = 15_000; // allow a slightly longer fallback window
+				if (lastPresetRange && (Date.now() - lastPresetRange.ts) < FALLBACK_MS) {
+					if (!Number.isFinite(start) || isNaN(start)) start = lastPresetRange.startUnix;
+					if (!Number.isFinite(end) || isNaN(end)) end = lastPresetRange.endUnix;
+					console.warn('Using lastPresetRange fallback', lastPresetRange);
+					// clear after use
+					lastPresetRange = null;
+				} else {
+					// As a final fallback, if end is invalid but we have a computed end value from setRangeRelative
+					if ((!Number.isFinite(end) || isNaN(end)) && lastPresetRange) {
+						end = lastPresetRange.endUnix;
+						start = (!Number.isFinite(start) || isNaN(start)) ? lastPresetRange.startUnix : start;
 						lastPresetRange = null;
+						console.warn('Forcing fallback to lastPresetRange (aged)', lastPresetRange);
 					} else {
-						// As a final fallback, if end is invalid but we have a computed end value from setRangeRelative
-						if((!Number.isFinite(end) || isNaN(end)) && lastPresetRange){
-							end = lastPresetRange.endUnix;
-							start = (!Number.isFinite(start) || isNaN(start)) ? lastPresetRange.startUnix : start;
-							lastPresetRange = null;
-							console.warn('Forcing fallback to lastPresetRange (aged)', lastPresetRange);
-						} else {
-							alert('Ungültige Start/Ende Werte — siehe Konsole');
-							return;
-						}
+						alert('Ungültige Start/Ende Werte — siehe Konsole');
+						return;
 					}
-				}
-				if(end <= start){ alert('Ende muss nach dem Start liegen'); return; }
-				// call API
-				const url = `${API_BASE}?start=${start}&end=${end}`;
-				document.getElementById('stats').textContent = 'Abrufen…';
-				try{
-					const res = await fetch(url, { headers: { 'Authorization': 'Bearer '+apiKey } });
-					if(!res.ok){
-						const txt = await res.text();
-						throw new Error(`${res.status} ${res.statusText}: ${txt}`);
-					}
-					const data = await res.json();
-					renderFlights(data.flights || [], start, end);
-				}catch(err){
-					console.error(err);
-					alert('Fehler beim Abrufen der Flugdaten: '+err.message);
-					document.getElementById('stats').textContent = 'Fehler beim Abrufen der Daten';
 				}
 			}
+			if (end <= start) { alert('Ende muss nach dem Start liegen'); return; }
+			// call API
+			const url = `${API_BASE}?start=${start}&end=${end}`;
+			document.getElementById('stats').textContent = 'Abrufen…';
+			try {
+				const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
+				if (!res.ok) {
+					const txt = await res.text();
+					throw new Error(`${res.status} ${res.statusText}: ${txt}`);
+				}
+				const data = await res.json();
+				renderFlights(data.flights || [], start, end);
+			} catch (err) {
+				console.error(err);
+				alert('Fehler beim Abrufen der Flugdaten: ' + err.message);
+				document.getElementById('stats').textContent = 'Fehler beim Abrufen der Daten';
+			}
+		}
 
-			function renderFlights(flights, start, end){
-				fullPathsLayer.clearLayers();
-				progressPathsLayer.clearLayers();
-				markersLayer.clearLayers();
-				document.getElementById('list').innerHTML = '';
-				if(!flights || flights.length===0){
-					document.getElementById('stats').textContent = 'Keine Flüge für diesen Zeitraum gefunden';
-					slider.min = start; slider.max = end; slider.value = end; slider.disabled = true; sliderTimeLabel.textContent = '—';
+		function renderFlights(flights, start, end) {
+			fullPathsLayer.clearLayers();
+			progressPathsLayer.clearLayers();
+			markersLayer.clearLayers();
+			document.getElementById('list').innerHTML = '';
+			if (!flights || flights.length === 0) {
+				document.getElementById('stats').textContent = 'Keine Flüge für diesen Zeitraum gefunden';
+				slider.min = start; slider.max = end; slider.value = end; slider.disabled = true; sliderTimeLabel.textContent = '—';
+				return;
+			}
+
+			// group points by callsign
+			flightData = {};
+			flights.forEach(f => {
+				const ts = Number(f.observed_at);
+				const lat = Number(f.latitude);
+				const lon = Number(f.longitude);
+				if (!flightData[f.callsign]) flightData[f.callsign] = [];
+				flightData[f.callsign].push({ ts, lat, lon });
+			});
+			Object.keys(flightData).forEach(c => flightData[c].sort((a, b) => a.ts - b.ts));
+
+			const callsigns = Object.keys(flightData);
+			document.getElementById('stats').textContent = `Zeige ${callsigns.length} Helikopter (letzte bekannte Positionen)`;
+
+			const bounds = [];
+			// draw faded full paths (rega red)
+			callsigns.forEach((callsign, idx) => {
+				const pts = flightData[callsign].map(p => [p.lat, p.lon]);
+				if (pts.length > 0) {
+					L.polyline(pts, { color: 'rgba(210,35,42,0.25)', weight: 2, opacity: 0.9 }).addTo(fullPathsLayer);
+					bounds.push(...pts);
+				}
+			});
+
+			// setup slider
+			slider.min = start;
+			slider.max = end;
+			slider.step = Math.max(1, Math.floor((end - start) / 300));
+			slider.value = end;
+			slider.disabled = false;
+
+			updateForTime(end);
+		}
+
+		function formatTimeShortUnix(ts) {
+			return formatSwiss(ts, false);
+		}
+
+		function updateForTime(unixTs) {
+			// unixTs in seconds
+			progressPathsLayer.clearLayers();
+			markersLayer.clearLayers();
+			document.getElementById('list').innerHTML = '';
+
+			const callsigns = Object.keys(flightData);
+			document.getElementById('stats').textContent = `Zeige ${callsigns.length} Helikopter (letzte bekannte Positionen)`;
+
+			const bounds = [];
+			callsigns.forEach((callsign, idx) => {
+				const pts = (flightData[callsign] || []).filter(p => p.ts <= unixTs);
+				if (pts.length === 0) return;
+				const latlngs = pts.map(p => [p.lat, p.lon]);
+				const color = 'rgba(210,35,42,0.95)';
+				L.polyline(latlngs, { color, weight: 3, opacity: 0.95 }).addTo(progressPathsLayer);
+				const last = pts[pts.length - 1];
+				const m = L.circleMarker([last.lat, last.lon], { radius: 8, fillColor: color, color: '#fff', weight: 1, fillOpacity: 0.95 });
+				m.bindPopup(`<b>${callsign}</b><br>${formatTimeShortUnix(last.ts)}<br>${last.lat.toFixed(5)}, ${last.lon.toFixed(5)}`);
+				// show permanent callsign label next to marker
+				try {
+					m.bindTooltip(callsign, { permanent: true, direction: 'right', offset: [10, 0], className: 'callsign-label' });
+				} catch (e) { /* ignore if bindTooltip not available */ }
+				m.addTo(markersLayer);
+				bounds.push([last.lat, last.lon]);
+
+				const item = document.createElement('div'); item.className = 'flight-item';
+				item.innerHTML = `<strong>${callsign}</strong><div class='muted'>${formatTimeShortUnix(last.ts)} — ${last.lat.toFixed(4)}, ${last.lon.toFixed(4)}</div>`;
+				item.addEventListener('click', () => { map.panTo([last.lat, last.lon]); m.openPopup(); });
+				document.getElementById('list').appendChild(item);
+			});
+			// Do not change map view while scrubbing the slider.
+			// Keep this commented: if(bounds.length) map.fitBounds(bounds, {padding:[40,40]});
+			sliderTimeLabel.textContent = formatTimeShortUnix(unixTs);
+		}
+
+		slider.addEventListener('input', () => {
+			// If playback is running, pause it to allow manual scrubbing
+			if (sliderPlayFrame) stopSliderPlay();
+			const t = Number(slider.value);
+			updateForTime(t);
+		});
+
+		// Play/pause animation for the slider: step through entire range in 30s
+		let sliderPlayFrame = null;
+		let sliderPlayStart = null;
+		let sliderPlayPauseUntil = null;
+		const PLAY_DURATION_MS = 30_000;
+		const playBtn = document.getElementById('playBtn');
+		const speedUpBtn = document.getElementById('speedUp');
+		const speedDownBtn = document.getElementById('speedDown');
+		const speedLabel = document.getElementById('speedLabel');
+		let playSpeed = 1.0; // multiplier, 1x default
+
+		function updateSpeedLabel() { if (speedLabel) speedLabel.textContent = (Math.round(playSpeed * 100) / 100) + 'x'; }
+		updateSpeedLabel();
+
+		if (speedUpBtn) speedUpBtn.addEventListener('click', () => { playSpeed = Math.min(8, playSpeed * 1.5); updateSpeedLabel(); });
+		if (speedDownBtn) speedDownBtn.addEventListener('click', () => { playSpeed = Math.max(0.25, playSpeed / 1.5); updateSpeedLabel(); });
+
+		function hasDataAtTime(unixTs) {
+			const calls = Object.keys(flightData);
+			for (let i = 0; i < calls.length; i++) {
+				const pts = flightData[calls[i]] || [];
+				for (let j = 0; j < pts.length; j++) {
+					if (pts[j].ts <= unixTs) return true;
+				}
+			}
+			return false;
+		}
+
+		function nextDataTimeAfter(unixTs) {
+			let next = Infinity;
+			const calls = Object.keys(flightData);
+			for (let i = 0; i < calls.length; i++) {
+				const pts = flightData[calls[i]] || [];
+				for (let j = 0; j < pts.length; j++) {
+					const ts = pts[j].ts;
+					if (ts > unixTs && ts < next) next = ts;
+				}
+			}
+			return next === Infinity ? null : next;
+		}
+
+		function stopSliderPlay() {
+			if (sliderPlayFrame) cancelAnimationFrame(sliderPlayFrame);
+			sliderPlayFrame = null; sliderPlayStart = null;
+			if (playBtn) { playBtn.textContent = '▶'; playBtn.classList.remove('active'); }
+		}
+
+		function startSliderPlay() {
+			if (!slider || slider.disabled) return;
+			stopSliderPlay();
+			const min = Number(slider.min);
+			const max = Number(slider.max);
+			let cur = Number(slider.value);
+			if (!Number.isFinite(cur)) cur = min;
+			// If the slider is at (or beyond) the end, jump to the beginning before playing.
+			if (cur >= max) {
+				cur = min;
+				slider.value = cur;
+				updateForTime(cur);
+			}
+			const frac = (max > min) ? Math.min(1, Math.max(0, (cur - min) / (max - min))) : 0;
+			sliderPlayStart = performance.now() - (PLAY_DURATION_MS * frac) / playSpeed;
+			// compute play start so playback begins at current slider position
+			if (!Number.isFinite(cur)) cur = min;
+			sliderPlayStart = performance.now() - (PLAY_DURATION_MS * frac) / playSpeed;
+			if (playBtn) { playBtn.textContent = '⏸'; playBtn.classList.add('active'); }
+			sliderPlayFrame = requestAnimationFrame(function step(now) {
+				if (sliderPlayPauseUntil && now < sliderPlayPauseUntil) {
+					// still in pause; keep frame loop running
+					sliderPlayFrame = requestAnimationFrame(step);
 					return;
 				}
-
-				// group points by callsign
-				flightData = {};
-				flights.forEach(f => {
-					const ts = Number(f.observed_at);
-					const lat = Number(f.latitude);
-					const lon = Number(f.longitude);
-					if(!flightData[f.callsign]) flightData[f.callsign]=[];
-					flightData[f.callsign].push({ts, lat, lon});
-				});
-				Object.keys(flightData).forEach(c => flightData[c].sort((a,b)=>a.ts-b.ts));
-
-				const callsigns = Object.keys(flightData);
-				document.getElementById('stats').textContent = `Zeige ${callsigns.length} Helikopter (letzte bekannte Positionen)`;
-
-				const bounds = [];
-				// draw faded full paths (rega red)
-				callsigns.forEach((callsign, idx) => {
-					const pts = flightData[callsign].map(p=>[p.lat,p.lon]);
-					if(pts.length>0){
-						L.polyline(pts, {color:'rgba(210,35,42,0.25)', weight:2, opacity:0.9}).addTo(fullPathsLayer);
-						bounds.push(...pts);
-					}
-				});
-
-				// setup slider
-				slider.min = start;
-				slider.max = end;
-				slider.step = Math.max(1, Math.floor((end - start) / 300));
-				slider.value = end;
-				slider.disabled = false;
-
-				updateForTime(end);
-			}
-
-			function formatTimeShortUnix(ts){
-				return formatSwiss(ts, false);
-			}
-
-			function updateForTime(unixTs){
-				// unixTs in seconds
-				progressPathsLayer.clearLayers();
-				markersLayer.clearLayers();
-				document.getElementById('list').innerHTML = '';
-
-				const callsigns = Object.keys(flightData);
-				document.getElementById('stats').textContent = `Zeige ${callsigns.length} Helikopter (letzte bekannte Positionen)`;
-
-				const bounds = [];
-				callsigns.forEach((callsign, idx)=>{
-					const pts = (flightData[callsign]||[]).filter(p=>p.ts <= unixTs);
-					if(pts.length===0) return;
-					const latlngs = pts.map(p=>[p.lat,p.lon]);
-					const color = 'rgba(210,35,42,0.95)';
-					L.polyline(latlngs, {color, weight:3, opacity:0.95}).addTo(progressPathsLayer);
-					const last = pts[pts.length-1];
-					const m = L.circleMarker([last.lat,last.lon], {radius:8,fillColor:color, color:'#fff', weight:1, fillOpacity:0.95});
-					m.bindPopup(`<b>${callsign}</b><br>${formatTimeShortUnix(last.ts)}<br>${last.lat.toFixed(5)}, ${last.lon.toFixed(5)}`);
-					m.addTo(markersLayer);
-					bounds.push([last.lat,last.lon]);
-
-					const item = document.createElement('div'); item.className='flight-item';
-					item.innerHTML = `<strong>${callsign}</strong><div class='muted'>${formatTimeShortUnix(last.ts)} — ${last.lat.toFixed(4)}, ${last.lon.toFixed(4)}</div>`;
-					item.addEventListener('click', ()=>{ map.panTo([last.lat,last.lon]); m.openPopup(); });
-					document.getElementById('list').appendChild(item);
-				});
-				// Do not change map view while scrubbing the slider.
-				// Keep this commented: if(bounds.length) map.fitBounds(bounds, {padding:[40,40]});
-				sliderTimeLabel.textContent = formatTimeShortUnix(unixTs);
-			}
-
-			slider.addEventListener('input', ()=>{
-				// If playback is running, pause it to allow manual scrubbing
-				if(sliderPlayFrame) stopSliderPlay();
-				const t = Number(slider.value);
-				updateForTime(t);
-			});
-
-			// Play/pause animation for the slider: step through entire range in 30s
-			let sliderPlayFrame = null;
-			let sliderPlayStart = null;
-			let sliderPlayPauseUntil = null;
-			const PLAY_DURATION_MS = 30_000;
-			const playBtn = document.getElementById('playBtn');
-			const speedUpBtn = document.getElementById('speedUp');
-			const speedDownBtn = document.getElementById('speedDown');
-			const speedLabel = document.getElementById('speedLabel');
-			let playSpeed = 1.0; // multiplier, 1x default
-
-			function updateSpeedLabel(){ if(speedLabel) speedLabel.textContent = (Math.round(playSpeed*100)/100)+'x'; }
-			updateSpeedLabel();
-
-			if(speedUpBtn) speedUpBtn.addEventListener('click', ()=>{ playSpeed = Math.min(8, playSpeed * 1.5); updateSpeedLabel(); });
-			if(speedDownBtn) speedDownBtn.addEventListener('click', ()=>{ playSpeed = Math.max(0.25, playSpeed / 1.5); updateSpeedLabel(); });
-
-			function hasDataAtTime(unixTs){
-				const calls = Object.keys(flightData);
-				for(let i=0;i<calls.length;i++){
-					const pts = flightData[calls[i]] || [];
-					for(let j=0;j<pts.length;j++){
-						if(pts[j].ts <= unixTs) return true;
-					}
-				}
-				return false;
-			}
-
-			function nextDataTimeAfter(unixTs){
-				let next = Infinity;
-				const calls = Object.keys(flightData);
-				for(let i=0;i<calls.length;i++){
-					const pts = flightData[calls[i]] || [];
-					for(let j=0;j<pts.length;j++){
-						const ts = pts[j].ts;
-						if(ts > unixTs && ts < next) next = ts;
-					}
-				}
-				return next === Infinity ? null : next;
-			}
-
-			function stopSliderPlay(){
-				if(sliderPlayFrame) cancelAnimationFrame(sliderPlayFrame);
-				sliderPlayFrame = null; sliderPlayStart = null;
-				if(playBtn) { playBtn.textContent = '▶'; playBtn.classList.remove('active'); }
-			}
-
-			function startSliderPlay(){
-				if(!slider || slider.disabled) return;
-				stopSliderPlay();
+				if (!sliderPlayStart) sliderPlayStart = now;
+				const elapsed = now - sliderPlayStart;
 				const min = Number(slider.min);
 				const max = Number(slider.max);
-				let cur = Number(slider.value);
-				if(!Number.isFinite(cur)) cur = min;
-				// If the slider is at (or beyond) the end, jump to the beginning before playing.
-				if(cur >= max){
-					cur = min;
-					slider.value = cur;
-					updateForTime(cur);
-				}
-				const frac = (max > min) ? Math.min(1, Math.max(0, (cur - min) / (max - min))) : 0;
-				sliderPlayStart = performance.now() - (PLAY_DURATION_MS * frac) / playSpeed;
-				// compute play start so playback begins at current slider position
-				if(!Number.isFinite(cur)) cur = min;
-				sliderPlayStart = performance.now() - (PLAY_DURATION_MS * frac) / playSpeed;
-				if(playBtn) { playBtn.textContent = '⏸'; playBtn.classList.add('active'); }
-				sliderPlayFrame = requestAnimationFrame(function step(now){
-					if(sliderPlayPauseUntil && now < sliderPlayPauseUntil){
-						// still in pause; keep frame loop running
+				if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) { stopSliderPlay(); return; }
+				const t = Math.min(1, (elapsed * playSpeed) / PLAY_DURATION_MS);
+				let v = Math.floor(min + (max - min) * t);
+				// if no data at this time, pause 1s then jump to next appearance
+				if (!hasDataAtTime(v)) {
+					const nextTs = nextDataTimeAfter(v);
+					if (!nextTs) { stopSliderPlay(); return; }
+					// pause for 1s
+					sliderPlayPauseUntil = now + 1000;
+					// schedule jump after 1s
+					setTimeout(() => {
+						// align play start so timeline corresponds to nextTs
+						const now2 = performance.now();
+						slider.value = nextTs;
+						updateForTime(nextTs);
+						sliderPlayStart = now2 - (PLAY_DURATION_MS * ((nextTs - min) / (max - min))) / playSpeed;
+						sliderPlayPauseUntil = null;
+						// resume frame loop
 						sliderPlayFrame = requestAnimationFrame(step);
-						return;
-					}
-					if(!sliderPlayStart) sliderPlayStart = now;
-					const elapsed = now - sliderPlayStart;
-					const min = Number(slider.min);
-					const max = Number(slider.max);
-					if(!Number.isFinite(min) || !Number.isFinite(max) || max <= min){ stopSliderPlay(); return; }
-					const t = Math.min(1, (elapsed * playSpeed) / PLAY_DURATION_MS);
-					let v = Math.floor(min + (max - min) * t);
-					// if no data at this time, pause 1s then jump to next appearance
-					if(!hasDataAtTime(v)){
-						const nextTs = nextDataTimeAfter(v);
-						if(!nextTs){ stopSliderPlay(); return; }
-						// pause for 1s
-						sliderPlayPauseUntil = now + 1000;
-						// schedule jump after 1s
-						setTimeout(()=>{
-							// align play start so timeline corresponds to nextTs
-							const now2 = performance.now();
-							slider.value = nextTs;
-							updateForTime(nextTs);
-							sliderPlayStart = now2 - (PLAY_DURATION_MS * ((nextTs - min) / (max - min))) / playSpeed;
-							sliderPlayPauseUntil = null;
-							// resume frame loop
-							sliderPlayFrame = requestAnimationFrame(step);
-						}, 1000);
-						return;
-					}
-					// normal advance
-					slider.value = v;
-					updateForTime(v);
-					if(t < 1){ sliderPlayFrame = requestAnimationFrame(step); }
-					else { stopSliderPlay(); }
-				});
-			}
-
-			if(playBtn){
-				playBtn.addEventListener('click', ()=>{
-					if(sliderPlayFrame) stopSliderPlay(); else startSliderPlay();
-				});
-			}
-
-			let liveInterval = null;
-			const liveBtn = document.getElementById('liveBtn');
-
-			function startLive(){
-				if(liveInterval) return;
-				liveBtn.classList.add('live-active');
-				liveBtn.classList.add('active');
-				liveBtn.textContent = 'Live';
-				// fetch immediately and then every 30 seconds
-				fetchRecent();
-				liveInterval = setInterval(fetchRecent, 30_000);
-			}
-
-			function stopLive(){
-				if(!liveInterval) return;
-				clearInterval(liveInterval);
-				liveInterval = null;
-				liveBtn.classList.remove('live-active');
-				liveBtn.classList.remove('active');
-				liveBtn.textContent = 'Live';
-				// keep auto-zoom control visible
-			}
-
-			function toggleLive(){
-				if(liveInterval) stopLive(); else startLive();
-			}
-
-			async function fetchRecent(){
-				const apiKey = loadApiKey();
-				if(!apiKey){ showModal(true); return; }
-				const end = Math.floor(Date.now()/1000);
-				const start = end - 5*60; // last 5 minutes
-				try{
-					const url = `${API_BASE}?start=${start}&end=${end}`;
-					const res = await fetch(url, { headers: { 'Authorization': 'Bearer '+apiKey } });
-					if(!res.ok){ console.warn('Live fetch failed', res.status); return; }
-					const data = await res.json();
-					renderFlights(data.flights || [], start, end);
-					// if auto-zoom is enabled, fit map to last-known points
-					try{
-						if(document.getElementById('autoZoom') && document.getElementById('autoZoom').checked){
-							const bounds = [];
-							Object.keys(flightData).forEach(c=>{
-								const pts = flightData[c];
-								if(!pts || pts.length===0) return;
-								const last = pts[pts.length-1];
-								bounds.push([last.lat,last.lon]);
-							});
-							if(bounds.length) map.fitBounds(bounds, {padding:[40,40]});
-						}
-					}catch(e){console.warn('auto-zoom failed', e)}
-				}catch(err){ console.error('Live fetch error', err); }
-			}
-
-			liveBtn.addEventListener('click', toggleLive);
-			// zoom to shown aircraft when autoZoom control clicked (only when checked)
-			document.getElementById('autoZoom').addEventListener('click', ()=>{
-				if(!document.getElementById('autoZoom').checked) return;
-				const bounds = [];
-				Object.keys(flightData).forEach(c=>{
-					const pts = flightData[c];
-					if(!pts || pts.length===0) return;
-					const last = pts[pts.length-1];
-					bounds.push([last.lat,last.lon]);
-				});
-				if(bounds.length) map.fitBounds(bounds, {padding:[40,40]});
+					}, 1000);
+					return;
+				}
+				// normal advance
+				slider.value = v;
+				updateForTime(v);
+				if (t < 1) { sliderPlayFrame = requestAnimationFrame(step); }
+				else { stopSliderPlay(); }
 			});
+		}
 
-			const fsBtn = document.getElementById('fullscreenBtn');
+		if (playBtn) {
+			playBtn.addEventListener('click', () => {
+				if (sliderPlayFrame) stopSliderPlay(); else startSliderPlay();
+			});
+		}
 
-			function hasNativeFullscreen(){
-				return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || document.msFullscreenEnabled);
-			}
+		let liveInterval = null;
+		const liveBtn = document.getElementById('liveBtn');
 
-			function isNativeFullscreen(){
-				return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-			}
+		function startLive() {
+			if (liveInterval) return;
+			liveBtn.classList.add('live-active');
+			liveBtn.classList.add('active');
+			liveBtn.textContent = 'Live';
+			// fetch immediately and then every 30 seconds
+			fetchRecent();
+			liveInterval = setInterval(fetchRecent, 30_000);
+		}
 
-			function requestNativeFullscreen(el){
-				return new Promise((resolve, reject)=>{
-					if(!el) return reject(new Error('No element provided'));
-					try{
-						if(el.requestFullscreen) return resolve(el.requestFullscreen());
-						if(el.webkitRequestFullscreen) return resolve(el.webkitRequestFullscreen());
-						if(el.mozRequestFullScreen) return resolve(el.mozRequestFullScreen());
-						if(el.msRequestFullscreen) return resolve(el.msRequestFullscreen());
-						return reject(new Error('No native requestFullscreen available'));
-					}catch(err){ reject(err); }
-				});
-			}
+		function stopLive() {
+			if (!liveInterval) return;
+			clearInterval(liveInterval);
+			liveInterval = null;
+			liveBtn.classList.remove('live-active');
+			liveBtn.classList.remove('active');
+			liveBtn.textContent = 'Live';
+			// keep auto-zoom control visible
+		}
 
-			function exitNativeFullscreen(){
-				if(document.exitFullscreen) return document.exitFullscreen();
-				if(document.webkitExitFullscreen) return document.webkitExitFullscreen();
-				if(document.mozCancelFullScreen) return document.mozCancelFullScreen();
-				if(document.msExitFullscreen) return document.msExitFullscreen();
-				return Promise.reject(new Error('No native exitFullscreen available'));
-			}
+		function toggleLive() {
+			if (liveInterval) stopLive(); else startLive();
+		}
 
-			function updateFsButtonText(isFull){
-				fsBtn.textContent = isFull ? 'Vollbild beenden' : 'Vollbild';
-			}
-
-			function enablePseudoFullscreen(){
-				document.body.classList.add('pseudo-fullscreen');
-				updateFsButtonText(true);
-				setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 200);
-			}
-
-			function disablePseudoFullscreen(){
-				document.body.classList.remove('pseudo-fullscreen');
-				updateFsButtonText(false);
-				setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 200);
-			}
-
-			fsBtn.addEventListener('click', async ()=>{
-				const mapEl = document.getElementById('map');
-				// Prefer native fullscreen when available
-				if(hasNativeFullscreen()){
-					try{
-						if(!isNativeFullscreen()){
-							// Request fullscreen for the map element only. If that fails, fall back to pseudo-fullscreen.
-							await requestNativeFullscreen(mapEl);
-							updateFsButtonText(true);
-							fsBtn.classList.add('active');
-						}else{
-							await exitNativeFullscreen();
-							updateFsButtonText(false);
-							fsBtn.classList.remove('active');
-						}
-					}catch(e){
-						console.warn('fullscreen toggle failed, falling back to pseudo-fullscreen', e);
-						// If native attempts fail (some iOS contexts), fall back to pseudo-fullscreen
-						enablePseudoFullscreen();
-						fsBtn.classList.add('active');
+		async function fetchRecent() {
+			const apiKey = loadApiKey();
+			if (!apiKey) { showModal(true); return; }
+			const end = Math.floor(Date.now() / 1000);
+			const start = end - 5 * 60; // last 5 minutes
+			try {
+				const url = `${API_BASE}?start=${start}&end=${end}`;
+				const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
+				if (!res.ok) { console.warn('Live fetch failed', res.status); return; }
+				const data = await res.json();
+				renderFlights(data.flights || [], start, end);
+				// if auto-zoom is enabled, fit map to last-known points
+				try {
+					if (document.getElementById('autoZoom') && document.getElementById('autoZoom').checked) {
+						const bounds = [];
+						Object.keys(flightData).forEach(c => {
+							const pts = flightData[c];
+							if (!pts || pts.length === 0) return;
+							const last = pts[pts.length - 1];
+							bounds.push([last.lat, last.lon]);
+						});
+						if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
 					}
-				}else{
-					// Fallback for browsers without Fullscreen API (notably some mobile browsers)
-					if(document.body.classList.contains('pseudo-fullscreen')){
-						disablePseudoFullscreen();
+				} catch (e) { console.warn('auto-zoom failed', e) }
+			} catch (err) { console.error('Live fetch error', err); }
+		}
+
+		liveBtn.addEventListener('click', toggleLive);
+		// zoom to shown aircraft when autoZoom control clicked (only when checked)
+		document.getElementById('autoZoom').addEventListener('click', () => {
+			if (!document.getElementById('autoZoom').checked) return;
+			const bounds = [];
+			Object.keys(flightData).forEach(c => {
+				const pts = flightData[c];
+				if (!pts || pts.length === 0) return;
+				const last = pts[pts.length - 1];
+				bounds.push([last.lat, last.lon]);
+			});
+			if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+		});
+
+		const fsBtn = document.getElementById('fullscreenBtn');
+
+		function hasNativeFullscreen() {
+			return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || document.msFullscreenEnabled);
+		}
+
+		function isNativeFullscreen() {
+			return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+		}
+
+		function requestNativeFullscreen(el) {
+			return new Promise((resolve, reject) => {
+				if (!el) return reject(new Error('No element provided'));
+				try {
+					if (el.requestFullscreen) return resolve(el.requestFullscreen());
+					if (el.webkitRequestFullscreen) return resolve(el.webkitRequestFullscreen());
+					if (el.mozRequestFullScreen) return resolve(el.mozRequestFullScreen());
+					if (el.msRequestFullscreen) return resolve(el.msRequestFullscreen());
+					return reject(new Error('No native requestFullscreen available'));
+				} catch (err) { reject(err); }
+			});
+		}
+
+		function exitNativeFullscreen() {
+			if (document.exitFullscreen) return document.exitFullscreen();
+			if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+			if (document.mozCancelFullScreen) return document.mozCancelFullScreen();
+			if (document.msExitFullscreen) return document.msExitFullscreen();
+			return Promise.reject(new Error('No native exitFullscreen available'));
+		}
+
+		function updateFsButtonText(isFull) {
+			fsBtn.textContent = isFull ? 'Vollbild beenden' : 'Vollbild';
+		}
+
+		function enablePseudoFullscreen() {
+			document.body.classList.add('pseudo-fullscreen');
+			updateFsButtonText(true);
+			setTimeout(() => { try { map.invalidateSize(); } catch (e) { } }, 200);
+		}
+
+		function disablePseudoFullscreen() {
+			document.body.classList.remove('pseudo-fullscreen');
+			updateFsButtonText(false);
+			setTimeout(() => { try { map.invalidateSize(); } catch (e) { } }, 200);
+		}
+
+		fsBtn.addEventListener('click', async () => {
+			const mapEl = document.getElementById('map');
+			// Prefer native fullscreen when available
+			if (hasNativeFullscreen()) {
+				try {
+					if (!isNativeFullscreen()) {
+						// Request fullscreen for the map element only. If that fails, fall back to pseudo-fullscreen.
+						await requestNativeFullscreen(mapEl);
+						updateFsButtonText(true);
+						fsBtn.classList.add('active');
+					} else {
+						await exitNativeFullscreen();
+						updateFsButtonText(false);
 						fsBtn.classList.remove('active');
-					}else{
-						enablePseudoFullscreen();
-						fsBtn.classList.add('active');
 					}
+				} catch (e) {
+					console.warn('fullscreen toggle failed, falling back to pseudo-fullscreen', e);
+					// If native attempts fail (some iOS contexts), fall back to pseudo-fullscreen
+					enablePseudoFullscreen();
+					fsBtn.classList.add('active');
+				}
+			} else {
+				// Fallback for browsers without Fullscreen API (notably some mobile browsers)
+				if (document.body.classList.contains('pseudo-fullscreen')) {
+					disablePseudoFullscreen();
+					fsBtn.classList.remove('active');
+				} else {
+					enablePseudoFullscreen();
+					fsBtn.classList.add('active');
+				}
+			}
+		});
+
+		function onNativeFsChange() {
+			const isFull = isNativeFullscreen();
+			updateFsButtonText(isFull);
+			if (fsBtn) fsBtn.classList.toggle('active', isFull || document.body.classList.contains('pseudo-fullscreen'));
+			setTimeout(() => { try { map.invalidateSize(); } catch (e) { } }, 200);
+		}
+
+		document.addEventListener('fullscreenchange', onNativeFsChange);
+		document.addEventListener('webkitfullscreenchange', onNativeFsChange);
+		document.addEventListener('mozfullscreenchange', onNativeFsChange);
+		document.addEventListener('MSFullscreenChange', onNativeFsChange);
+
+		// Mobile menu behavior: move `.header-controls` into the slide-over on small screens
+		(function () {
+			const menuBtn = document.getElementById('menuBtn');
+			const mobileBackdrop = document.getElementById('mobileMenuBackdrop');
+			const mobileMenu = document.getElementById('mobileMenu');
+			const mobileClose = document.getElementById('mobileMenuClose');
+			const headerEl = document.querySelector('header');
+			const headerControls = document.querySelector('header .header-controls');
+			const originalParent = headerControls ? headerControls.parentElement : null;
+
+			// footer moving for mobile: move attribution into mobile menu on small screens
+			const footerEl = document.querySelector('footer');
+			const footerOriginalParent = footerEl ? footerEl.parentElement : null;
+			const footerOriginalNext = footerEl ? footerEl.nextSibling : null;
+
+			function moveFooterToMenu() {
+				if (!footerEl || !mobileMenu) return;
+				if (window.innerWidth <= 1630) {
+					if (footerEl.parentElement !== mobileMenu) {
+						footerEl.classList.add('mobile-footer');
+						mobileMenu.appendChild(footerEl);
+					}
+				} else {
+					if (footerOriginalParent && footerEl.parentElement !== footerOriginalParent) {
+						if (footerOriginalNext && footerOriginalNext.parentElement === footerOriginalParent) {
+							footerOriginalParent.insertBefore(footerEl, footerOriginalNext);
+						} else {
+							footerOriginalParent.appendChild(footerEl);
+						}
+						footerEl.classList.remove('mobile-footer');
+					}
+				}
+			}
+
+			function openMobileMenu() {
+				if (!mobileBackdrop || !mobileMenu) return;
+				mobileBackdrop.style.display = 'block';
+				mobileBackdrop.setAttribute('aria-hidden', 'false');
+				setTimeout(() => mobileMenu.classList.add('open'), 20);
+				if (headerControls && headerControls.parentElement !== mobileMenu) mobileMenu.appendChild(headerControls);
+				document.body.style.overflow = 'hidden';
+			}
+
+			function closeMobileMenu() {
+				if (!mobileBackdrop || !mobileMenu) return;
+				mobileMenu.classList.remove('open');
+				mobileBackdrop.setAttribute('aria-hidden', 'true');
+				setTimeout(() => {
+					mobileBackdrop.style.display = 'none';
+					if (headerControls && originalParent && headerControls.parentElement !== originalParent) originalParent.appendChild(headerControls);
+					document.body.style.overflow = '';
+				}, 240);
+			}
+
+			if (menuBtn) menuBtn.addEventListener('click', () => { if (mobileBackdrop && mobileBackdrop.style.display === 'block') closeMobileMenu(); else openMobileMenu(); });
+			if (mobileBackdrop) mobileBackdrop.addEventListener('click', (e) => { if (e.target === mobileBackdrop) closeMobileMenu(); });
+			if (mobileClose) mobileClose.addEventListener('click', closeMobileMenu);
+
+			// ensure flatpickr inputs are repopulated when opening the mobile menu
+			function refreshDateInputs() {
+				setTimeout(() => {
+					try {
+						if (typeof flatpickr !== 'undefined') {
+							const startEl = document.getElementById('start');
+							const endEl = document.getElementById('end');
+							if (fpStart && startEl && startEl.value) {
+								const parsed = flatpickr.parseDate(startEl.value, 'd.m.Y H:i');
+								if (parsed) fpStart.setDate(parsed, true);
+							}
+							if (fpEnd && endEl && endEl.value) {
+								const parsed2 = flatpickr.parseDate(endEl.value, 'd.m.Y H:i');
+								if (parsed2) fpEnd.setDate(parsed2, true);
+							}
+						}
+					} catch (e) { console.warn('refreshDateInputs failed', e) }
+				}, 60);
+			}
+
+			// call refresh and move footer when opening the menu
+			const origOpen = openMobileMenu;
+			openMobileMenu = function () { origOpen(); moveFooterToMenu(); refreshDateInputs(); };
+
+			window.addEventListener('resize', () => {
+				moveFooterToMenu();
+				if (window.innerWidth > 1630) {
+					if (headerControls && originalParent && headerControls.parentElement !== originalParent) originalParent.appendChild(headerControls);
+					if (mobileBackdrop) mobileBackdrop.style.display = 'none';
+					if (mobileMenu) mobileMenu.classList.remove('open');
+					document.body.style.overflow = '';
+				} else {
+					// ensure header-controls remain removed from header
+					if (headerControls && headerControls.parentElement === originalParent) { /* left in header, will be moved on open */ }
 				}
 			});
 
-			function onNativeFsChange(){
-				const isFull = isNativeFullscreen();
-				updateFsButtonText(isFull);
-				if(fsBtn) fsBtn.classList.toggle('active', isFull || document.body.classList.contains('pseudo-fullscreen'));
-				setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 200);
-			}
+			// click feedback is handled by toggling the `active` class immediately elsewhere
+			function wireClickFeedback(root) { /* no-op */ }
+			// ensure footer is in the right place on load
+			moveFooterToMenu();
+			// wire feedback for header and mobile menu
+			wireClickFeedback(document);
+			if (mobileMenu) wireClickFeedback(mobileMenu);
+		})();
 
-			document.addEventListener('fullscreenchange', onNativeFsChange);
-			document.addEventListener('webkitfullscreenchange', onNativeFsChange);
-			document.addEventListener('mozfullscreenchange', onNativeFsChange);
-			document.addEventListener('MSFullscreenChange', onNativeFsChange);
+		// initial setup
+		setDefaults(); enforceLimits();
+		// Enable auto-zoom by default on mobile devices
+		try {
+			const autoZoomEl = document.getElementById('autoZoom');
+			if (autoZoomEl && window.innerWidth <= 1630) autoZoomEl.checked = true;
+			window.addEventListener('resize', () => {
+				if (window.innerWidth <= 1630 && autoZoomEl && !autoZoomEl.checked) autoZoomEl.checked = true;
+			});
+		} catch (e) {/* ignore */ }
+		// show modal on first load if key missing, otherwise start Live
+		const existing = loadApiKey();
+		if (!existing) {
+			showModal(true);
+		} else {
+			document.getElementById('apiKeyInput').value = existing;
+			// start live mode automatically when an API key is present
+			startLive();
+		}
 
-			// Mobile menu behavior: move `.header-controls` into the slide-over on small screens
-			(function(){
-				const menuBtn = document.getElementById('menuBtn');
-				const mobileBackdrop = document.getElementById('mobileMenuBackdrop');
-				const mobileMenu = document.getElementById('mobileMenu');
-				const mobileClose = document.getElementById('mobileMenuClose');
-				const headerEl = document.querySelector('header');
-				const headerControls = document.querySelector('header .header-controls');
-				const originalParent = headerControls ? headerControls.parentElement : null;
+	</script>
+</body>
 
-				// footer moving for mobile: move attribution into mobile menu on small screens
-				const footerEl = document.querySelector('footer');
-				const footerOriginalParent = footerEl ? footerEl.parentElement : null;
-				const footerOriginalNext = footerEl ? footerEl.nextSibling : null;
-
-				function moveFooterToMenu(){
-					if(!footerEl || !mobileMenu) return;
-					if(window.innerWidth <= 1630){
-						if(footerEl.parentElement !== mobileMenu){
-							footerEl.classList.add('mobile-footer');
-							mobileMenu.appendChild(footerEl);
-						}
-					} else {
-						if(footerOriginalParent && footerEl.parentElement !== footerOriginalParent){
-							if(footerOriginalNext && footerOriginalNext.parentElement === footerOriginalParent){
-								footerOriginalParent.insertBefore(footerEl, footerOriginalNext);
-							} else {
-								footerOriginalParent.appendChild(footerEl);
-							}
-							footerEl.classList.remove('mobile-footer');
-						}
-					}
-				}
-
-				function openMobileMenu(){
-					if(!mobileBackdrop || !mobileMenu) return;
-					mobileBackdrop.style.display = 'block';
-					mobileBackdrop.setAttribute('aria-hidden','false');
-					setTimeout(()=> mobileMenu.classList.add('open'), 20);
-					if(headerControls && headerControls.parentElement !== mobileMenu) mobileMenu.appendChild(headerControls);
-					document.body.style.overflow = 'hidden';
-				}
-
-				function closeMobileMenu(){
-					if(!mobileBackdrop || !mobileMenu) return;
-					mobileMenu.classList.remove('open');
-					mobileBackdrop.setAttribute('aria-hidden','true');
-					setTimeout(()=>{
-						mobileBackdrop.style.display = 'none';
-						if(headerControls && originalParent && headerControls.parentElement !== originalParent) originalParent.appendChild(headerControls);
-						document.body.style.overflow = '';
-					}, 240);
-				}
-
-				if(menuBtn) menuBtn.addEventListener('click', ()=>{ if(mobileBackdrop && mobileBackdrop.style.display==='block') closeMobileMenu(); else openMobileMenu(); });
-				if(mobileBackdrop) mobileBackdrop.addEventListener('click', (e)=>{ if(e.target === mobileBackdrop) closeMobileMenu(); });
-				if(mobileClose) mobileClose.addEventListener('click', closeMobileMenu);
-
-				// ensure flatpickr inputs are repopulated when opening the mobile menu
-				function refreshDateInputs(){
-					setTimeout(()=>{
-						try{
-							if(typeof flatpickr !== 'undefined'){
-								const startEl = document.getElementById('start');
-								const endEl = document.getElementById('end');
-								if(fpStart && startEl && startEl.value){
-									const parsed = flatpickr.parseDate(startEl.value, 'd.m.Y H:i');
-									if(parsed) fpStart.setDate(parsed, true);
-								}
-								if(fpEnd && endEl && endEl.value){
-									const parsed2 = flatpickr.parseDate(endEl.value, 'd.m.Y H:i');
-									if(parsed2) fpEnd.setDate(parsed2, true);
-								}
-							}
-						}catch(e){console.warn('refreshDateInputs failed', e)}
-					}, 60);
-				}
-
-				// call refresh and move footer when opening the menu
-				const origOpen = openMobileMenu;
-				openMobileMenu = function(){ origOpen(); moveFooterToMenu(); refreshDateInputs(); };
-
-				window.addEventListener('resize', ()=>{
-					moveFooterToMenu();
-					if(window.innerWidth > 1630){
-						if(headerControls && originalParent && headerControls.parentElement !== originalParent) originalParent.appendChild(headerControls);
-						if(mobileBackdrop) mobileBackdrop.style.display = 'none';
-						if(mobileMenu) mobileMenu.classList.remove('open');
-						document.body.style.overflow = '';
-					} else {
-						// ensure header-controls remain removed from header
-						if(headerControls && headerControls.parentElement === originalParent){ /* left in header, will be moved on open */ }
-					}
-				});
-
-				// click feedback is handled by toggling the `active` class immediately elsewhere
-				function wireClickFeedback(root){ /* no-op */ }
-				// ensure footer is in the right place on load
-				moveFooterToMenu();
-				// wire feedback for header and mobile menu
-				wireClickFeedback(document);
-				if(mobileMenu) wireClickFeedback(mobileMenu);
-			})();
-
-			// initial setup
-			setDefaults(); enforceLimits();
-			// Enable auto-zoom by default on mobile devices
-			try{
-				const autoZoomEl = document.getElementById('autoZoom');
-				if(autoZoomEl && window.innerWidth <= 1630) autoZoomEl.checked = true;
-				window.addEventListener('resize', ()=>{
-					if(window.innerWidth <= 1630 && autoZoomEl && !autoZoomEl.checked) autoZoomEl.checked = true;
-				});
-			}catch(e){/* ignore */}
-			// show modal on first load if key missing, otherwise start Live
-			const existing = loadApiKey();
-			if(!existing){
-				showModal(true);
-			} else {
-				document.getElementById('apiKeyInput').value = existing;
-				// start live mode automatically when an API key is present
-				startLive();
-			}
-
-		</script>
-	</body>
 </html>
