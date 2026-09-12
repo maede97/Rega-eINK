@@ -761,7 +761,7 @@
 
 		/* Muted callsign label for stale (older than 60s) aircraft */
 		.leaflet-tooltip.callsign-label.stale-label {
-			color: rgba(210,35,42,0.6);
+			color: rgba(210, 35, 42, 0.6);
 			opacity: 0.6;
 		}
 	</style>
@@ -1097,13 +1097,13 @@
 			document.getElementById('stats').textContent = 'Abrufen…';
 			try {
 				const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
-					if (!res.ok) {
-						if (res.status === 401) setShowClearKey(true);
-						const txt = await res.text();
-						throw new Error(`${res.status} ${res.statusText}: ${txt}`);
-					} else {
-						setShowClearKey(false);
-					}
+				if (!res.ok) {
+					if (res.status === 401) setShowClearKey(true);
+					const txt = await res.text();
+					throw new Error(`${res.status} ${res.statusText}: ${txt}`);
+				} else {
+					setShowClearKey(false);
+				}
 				const data = await res.json();
 				renderFlights(data.flights || [], start, end);
 			} catch (err) {
@@ -1286,11 +1286,6 @@
 			sliderPlayStart = performance.now() - (PLAY_DURATION_MS * frac) / playSpeed;
 			if (playBtn) { playBtn.textContent = '⏸'; playBtn.classList.add('active'); }
 			sliderPlayFrame = requestAnimationFrame(function step(now) {
-				if (sliderPlayPauseUntil && now < sliderPlayPauseUntil) {
-					// still in pause; keep frame loop running
-					sliderPlayFrame = requestAnimationFrame(step);
-					return;
-				}
 				if (!sliderPlayStart) sliderPlayStart = now;
 				const elapsed = now - sliderPlayStart;
 				const min = Number(slider.min);
@@ -1302,19 +1297,13 @@
 				if (!hasDataAtTime(v)) {
 					const nextTs = nextDataTimeAfter(v);
 					if (!nextTs) { stopSliderPlay(); return; }
-					// pause for 1s
-					sliderPlayPauseUntil = now + 1000;
-					// schedule jump after 1s
-					setTimeout(() => {
-						// align play start so timeline corresponds to nextTs
-						const now2 = performance.now();
-						slider.value = nextTs;
-						updateForTime(nextTs);
-						sliderPlayStart = now2 - (PLAY_DURATION_MS * ((nextTs - min) / (max - min))) / playSpeed;
-						sliderPlayPauseUntil = null;
-						// resume frame loop
-						sliderPlayFrame = requestAnimationFrame(step);
-					}, 1000);
+					// Immediately jump to the next timestamp with data (no artificial pause)
+					const now2 = performance.now();
+					slider.value = nextTs;
+					updateForTime(nextTs);
+					sliderPlayStart = now2 - (PLAY_DURATION_MS * ((nextTs - min) / (max - min))) / playSpeed;
+					// continue frame loop
+					sliderPlayFrame = requestAnimationFrame(step);
 					return;
 				}
 				// normal advance
@@ -1366,8 +1355,8 @@
 			try {
 				const url = `${API_BASE}?start=${start}&end=${end}`;
 				const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
-					if (!res.ok) { if (res.status === 401) setShowClearKey(true); console.warn('Live fetch failed', res.status); return; }
-					else { setShowClearKey(false); }
+				if (!res.ok) { if (res.status === 401) setShowClearKey(true); console.warn('Live fetch failed', res.status); return; }
+				else { setShowClearKey(false); }
 				const data = await res.json();
 				renderFlights(data.flights || [], start, end);
 				// if auto-zoom is enabled, fit map to last-known points
