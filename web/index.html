@@ -814,7 +814,7 @@
 				<div class="stats" id="stats">Keine Daten geladen</div>
 				<div class="list" id="list"></div>
 				<div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-					<button id="clearKey" class="secondary">API-Schlüssel ändern</button>
+					<button id="clearKey" class="secondary" style="display:none">API-Schlüssel ändern</button>
 					<div class="muted" style="flex:1;text-align:right">Daten älter als zwei Wochen sind nicht verfügbar.
 					</div>
 				</div>
@@ -864,6 +864,13 @@
 		const slider = document.getElementById('timeSlider');
 		const sliderTimeLabel = document.getElementById('sliderTime');
 
+		const clearKeyBtn = document.getElementById('clearKey');
+
+		function setShowClearKey(show) {
+			if (!clearKeyBtn) return;
+			clearKeyBtn.style.display = show ? 'inline-flex' : 'none';
+		}
+
 		function formatSwiss(ts, withSeconds = false) {
 			if (!ts) return '—';
 			const d = new Date(ts * 1000);
@@ -905,6 +912,7 @@
 
 		function clearApiKey() {
 			localStorage.removeItem('rega_api_key');
+			setShowClearKey(false);
 			showModal(true);
 		}
 
@@ -913,6 +921,7 @@
 			if (!v) { alert('Bitte API-Schlüssel eingeben'); return; }
 			saveApiKey(v);
 			showModal(false);
+			setShowClearKey(false);
 		});
 
 		document.getElementById('clearKey').addEventListener('click', () => {
@@ -1082,10 +1091,13 @@
 			document.getElementById('stats').textContent = 'Abrufen…';
 			try {
 				const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
-				if (!res.ok) {
-					const txt = await res.text();
-					throw new Error(`${res.status} ${res.statusText}: ${txt}`);
-				}
+					if (!res.ok) {
+						if (res.status === 401) setShowClearKey(true);
+						const txt = await res.text();
+						throw new Error(`${res.status} ${res.statusText}: ${txt}`);
+					} else {
+						setShowClearKey(false);
+					}
 				const data = await res.json();
 				renderFlights(data.flights || [], start, end);
 			} catch (err) {
@@ -1334,7 +1346,8 @@
 			try {
 				const url = `${API_BASE}?start=${start}&end=${end}`;
 				const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
-				if (!res.ok) { console.warn('Live fetch failed', res.status); return; }
+					if (!res.ok) { if (res.status === 401) setShowClearKey(true); console.warn('Live fetch failed', res.status); return; }
+					else { setShowClearKey(false); }
 				const data = await res.json();
 				renderFlights(data.flights || [], start, end);
 				// if auto-zoom is enabled, fit map to last-known points
@@ -1579,6 +1592,7 @@
 			showModal(true);
 		} else {
 			document.getElementById('apiKeyInput').value = existing;
+			setShowClearKey(false);
 			// start live mode automatically when an API key is present
 			startLive();
 		}
