@@ -19,17 +19,48 @@
 			header{background:var(--rega-red);color:white;padding:10px 16px;display:flex;align-items:center;gap:12px;justify-content:space-between}
 			.logo{display:flex;align-items:center;gap:12px}
 			.logo .shield{width:44px;height:44px;background:white;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--rega-red);font-weight:700}
-			.title{font-size:18px;font-weight:600}
+			
+			/* Desktop layout: two-column container with side panel */
 			.container{display:grid;grid-template-columns:1fr 360px;gap:16px;padding:16px;height:calc(100vh - 68px)}
 			.header-controls{margin-left:auto;display:flex;align-items:center;gap:8px}
 			.time-slider{display:flex;align-items:center;gap:8px;margin-left:12px}
-			.time-slider input[type=range]{width:260px}
+			/* Styled range to match header controls */
+			.time-slider input[type=range]{
+				-webkit-appearance:none;appearance:none;
+				width:260px;height:6px;border-radius:6px;background:rgba(255,255,255,0.18);outline:none;
+			}
+			.time-slider input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:rgba(255,255,255,0.18)}
+			.time-slider input[type=range]::-webkit-slider-thumb{
+				-webkit-appearance:none;margin-top:-5px;width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--rega-red);box-shadow:0 2px 6px rgba(0,0,0,0.12);
+			}
+			.time-slider input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:rgba(255,255,255,0.18)}
+			.time-slider input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--rega-red);box-shadow:0 2px 6px rgba(0,0,0,0.12)}
+			.time-slider input[type=range]::-ms-track{height:6px}
+			.time-slider button.secondary{height:34px;min-width:34px;padding:6px 8px;border-radius:6px;background:transparent;color:white;border:1px solid rgba(255,255,255,0.18)}
+			.time-slider #playBtn{font-weight:600}
 			.slider-time{font-size:13px;color:rgba(255,255,255,0.95);min-width:170px;text-align:center}
-			.header-controls input#start, .header-controls input#end {width:170px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.95);color:#000}
+			.header-controls input#start, .header-controls input#end, .header-controls input.flatpickr-input {width:170px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.95);color:#000}
 			.header-controls button{display:inline-flex;align-items:center;justify-content:center;height:36px;min-width:36px;padding:6px 10px;border-radius:6px;font-size:13px;line-height:1}
 			.header-controls .secondary{background:transparent;color:white;border:1px solid rgba(255,255,255,0.18)}
 			.header-controls select.secondary{padding:8px 10px;border-radius:6px;background:transparent;color:white;border:1px solid rgba(255,255,255,0.18)}
 			.header-controls button.live-active{background:white;color:var(--rega-red)}
+
+			/* Desktop-specific: ensure Live button stays white when active (overrides global .active) */
+			@media (min-width:1631px){
+				.header-controls button.live-active,
+				.header-controls button.live-active.active {
+					background: white !important;
+					color: var(--rega-red) !important;
+					border-color: rgba(255,255,255,0.18) !important;
+				}
+
+				/* Desktop-specific: ensure Play/Pause button appears white when active */
+				.header-controls #playBtn.active {
+					background: white !important;
+					color: var(--rega-red) !important;
+					border-color: rgba(255,255,255,0.18) !important;
+				}
+			}
 			.panel{background:var(--card);border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column}
 			#map{border-radius:8px}
 			.controls{display:flex;flex-direction:column;gap:8px}
@@ -47,24 +78,70 @@
 			.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999}
 			.modal{background:white;padding:20px;border-radius:8px;max-width:520px;width:calc(100% - 40px);box-shadow:0 20px 60px rgba(0,0,0,0.3);box-sizing:border-box}
 			.modal h2{margin:0 0 8px 0}
-			.modal .hint{color:var(--muted);font-size:13px;margin-bottom:12px}
 			.modal input[type=text]{width:100%;box-sizing:border-box}
 			.modal-backdrop{padding:20px}
 
 			footer{position:fixed;right:16px;bottom:16px;background:rgba(255,255,255,0.9);padding:8px 12px;border-radius:999px;border:1px solid #eee;font-size:12px}
 
-			@media (max-width:900px){
+			@media (max-width:1630px){
 				.container{grid-template-columns:1fr;grid-auto-rows:1fr;height:calc(100vh - 56px);padding:8px}
 				/* hide the right-side list/stats panel on mobile to show only the map */
 				.container > .panel:nth-child(2){display:none}
-				/* make header controls wrap and compact */
-				header{padding:8px 10px;flex-direction:column;align-items:flex-start}
+				/* keep header logo and hamburger on one row; hide header-controls (they live in the slide-over) */
+				header{padding:8px 10px;flex-direction:row;align-items:center}
+				.header-controls{display:none}
 				.header-controls{gap:6px;flex-wrap:wrap;align-items:center;width:100%;margin-top:8px}
 				.header-controls input#start, .header-controls input#end {width:140px;padding:6px}
 				.time-slider input[type=range]{width:140px}
 				.slider-time{min-width:80px;font-size:12px}
 				footer{left:12px;right:auto}
 			}
+
+			/* Mobile hamburger + slide-over menu */
+			.hamburger{display:none;background:transparent;border:0;color:white;width:44px;height:44px;border-radius:8px;align-items:center;justify-content:center;cursor:pointer}
+			.hamburger .bar{display:block;width:20px;height:2px;background:white;border-radius:2px;position:relative}
+			.hamburger .bar:before,.hamburger .bar:after{content:'';position:absolute;left:0;width:20px;height:2px;background:white;border-radius:2px}
+			.hamburger .bar:before{top:-6px}
+			.hamburger .bar:after{top:6px}
+
+			@media (max-width:1630px){
+				.hamburger{display:inline-flex;margin-left:auto;margin-right:6px}
+				/* hide header controls in the header on mobile; controls live in the slide-over only */
+				header .header-controls{display:none}
+				/* hide fullscreen button entirely on mobile */
+				#fullscreenBtn{display:none !important}
+			}
+
+			.mobile-menu-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;z-index:9998}
+			.mobile-menu{position:fixed;right:0;top:0;height:100%;width:320px;max-width:100%;background:var(--bg);color:var(--muted);box-shadow:-12px 0 30px rgba(0,0,0,0.2);padding:12px;box-sizing:border-box;transform:translateX(100%);transition:transform 220ms ease-in-out;z-index:9999;display:flex;flex-direction:column;gap:8px}
+			.mobile-menu.open{transform:translateX(0)}
+			.mobile-menu{overflow-y:auto;-webkit-overflow-scrolling:touch}
+			.mobile-menu, .mobile-menu *{box-sizing:border-box}
+			.mobile-menu .close{align-self:flex-end;background:transparent;border:0;font-size:20px;padding:6px;cursor:pointer}
+			.mobile-menu .close{color:var(--rega-red)}
+			/* ensure header-controls are full width inside mobile menu */
+			.mobile-menu .header-controls{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+			.mobile-menu .header-controls input#start, .mobile-menu .header-controls input#end {width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;background:#fff;color:#000}
+			.mobile-menu .header-controls input.flatpickr-input{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;background:#fff;color:#000}
+
+			/* Ensure flatpickr popup is above the slide-over */
+			.flatpickr-calendar{z-index:12000}
+			.mobile-menu .header-controls select{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;background:#fff;color:#000}
+			.mobile-menu .header-controls .secondary{background:transparent;color:var(--rega-red);border:1px solid rgba(0,0,0,0.08)}
+			.mobile-menu .header-controls button{background:var(--rega-red);color:#fff;padding:8px 10px;height:34px;min-width:0;font-size:13px}
+			.mobile-menu #autoZoomWrap{margin-left:0}
+			.mobile-menu .time-slider{flex-direction:column;align-items:stretch}
+			.mobile-menu .time-slider input[type=range]{width:100%}
+			.mobile-menu .slider-time{color:var(--muted);min-width:0;text-align:left}
+			.mobile-menu .stats{color:var(--muted)}
+			.header-controls #autoZoomWrap{color:white}
+			.mobile-menu #autoZoomWrap{color:var(--rega-red);font-size:13px;font-weight:600}
+			.mobile-menu #autoZoom{accent-color:var(--rega-red)}
+			.mobile-menu .mobile-footer{margin-top:12px;color:var(--muted);font-size:12px;text-align:center;padding-top:8px;border-top:1px solid rgba(0,0,0,0.04);position:static !important;right:auto;bottom:auto}
+
+			/* persistent active state for toggled controls */
+			button.active{background:var(--rega-red) !important;color:#fff !important;border-color:transparent !important}
+
 
 			/* Pseudo-fullscreen fallback for mobile browsers without Fullscreen API */
 			body.pseudo-fullscreen header,
@@ -95,30 +172,34 @@
 				<input id="start" type="text" placeholder="Start" />
 				<input id="end" type="text" placeholder="Ende" />
 				<button id="fetchBtn" class="secondary">Abrufen</button>
-								<select id="presetSelect" class="secondary" aria-label="Schnelle Auswahl">
-									<option value="">Voreinstellungen</option>
-									<option value="300">5 Minuten</option>
-									<option value="900">15 Minuten</option>
-									<option value="1800">30 Minuten</option>
-									<option value="3600">1 Stunde</option>
-									<option value="21600">6 Stunden</option>
-									<option value="86400">24 Stunden</option>
-									<option value="604800">7 Tage</option>
-								</select>
-								<button id="liveBtn" class="secondary">Live</button>
-								<label id="autoZoomWrap" style="align-items:center;gap:6px;color:white;font-size:13px;margin-left:6px;display:inline-flex">
-									<input id="autoZoom" type="checkbox" style="width:16px;height:16px;margin-right:6px" />Auto-Zoom
-								</label>
+				<select id="presetSelect" class="secondary" aria-label="Schnelle Auswahl">
+					<option value="">Voreinstellungen</option>
+					<option value="300">5 Minuten</option>
+					<option value="900">15 Minuten</option>
+					<option value="1800">30 Minuten</option>
+					<option value="3600">1 Stunde</option>
+					<option value="21600">6 Stunden</option>
+					<option value="86400">24 Stunden</option>
+					<option value="604800">7 Tage</option>
+				</select>
+				<button id="liveBtn" class="secondary" data-toggle-state="true">Live</button>
+				<label id="autoZoomWrap" style="align-items:center;gap:6px;margin-left:6px;display:inline-flex">
+					<input id="autoZoom" type="checkbox" style="width:16px;height:16px;margin-right:6px" />Auto-Zoom
+				</label>
 				<div class="time-slider">
 					<input id="timeSlider" type="range" min="0" max="100" step="60" />
 					<button id="speedDown" class="secondary" aria-label="Langsamer">−</button>
-					<button id="playBtn" class="secondary" aria-label="Play">▶</button>
+					<button id="playBtn" class="secondary" aria-label="Play" data-toggle-state="true">▶</button>
 					<button id="speedUp" class="secondary" aria-label="Schneller">+</button>
 					<div id="speedLabel" class="slider-time" style="min-width:36px;text-align:center;margin-left:6px">1x</div>
 					<div id="sliderTime" class="slider-time">—</div>
 				</div>
 				<button id="fullscreenBtn" class="secondary">Vollbild</button>
 			</div>
+			<!-- mobile menu button placed at end so it sits on the right side of the header -->
+			<button id="menuBtn" class="hamburger" aria-label="Menü">
+				<span class="bar"></span>
+			</button>
 		</header>
 
 		<div class="container">
@@ -135,6 +216,14 @@
 						<div class="muted" style="flex:1;text-align:right">Daten älter als zwei Wochen sind nicht verfügbar.</div>
 					</div>
 				</div>
+			</div>
+		</div>
+
+		<!-- Mobile slide-over menu (reuses header-controls by moving it into this panel on small screens) -->
+		<div id="mobileMenuBackdrop" class="mobile-menu-backdrop" role="dialog" aria-hidden="true">
+			<div id="mobileMenu" class="mobile-menu" role="document">
+				<button id="mobileMenuClose" class="close" aria-label="Schliessen">✕</button>
+				<!-- header-controls will be moved here on mobile -->
 			</div>
 		</div>
 
@@ -361,15 +450,24 @@
                 
 				if(!Number.isFinite(start) || !Number.isFinite(end) || isNaN(start) || isNaN(end)){
 					// Try short-lived preset fallback recorded by setRangeRelative
-					if(lastPresetRange && (Date.now() - lastPresetRange.ts) < 5000){
+					const FALLBACK_MS = 15_000; // allow a slightly longer fallback window
+					if(lastPresetRange && (Date.now() - lastPresetRange.ts) < FALLBACK_MS){
 						if(!Number.isFinite(start) || isNaN(start)) start = lastPresetRange.startUnix;
 						if(!Number.isFinite(end) || isNaN(end)) end = lastPresetRange.endUnix;
+						console.warn('Using lastPresetRange fallback', lastPresetRange);
 						// clear after use
 						lastPresetRange = null;
-					}else{
-                        
-						alert('Ungültige Start/Ende Werte — siehe Konsole');
-						return;
+					} else {
+						// As a final fallback, if end is invalid but we have a computed end value from setRangeRelative
+						if((!Number.isFinite(end) || isNaN(end)) && lastPresetRange){
+							end = lastPresetRange.endUnix;
+							start = (!Number.isFinite(start) || isNaN(start)) ? lastPresetRange.startUnix : start;
+							lastPresetRange = null;
+							console.warn('Forcing fallback to lastPresetRange (aged)', lastPresetRange);
+						} else {
+							alert('Ungültige Start/Ende Werte — siehe Konsole');
+							return;
+						}
 					}
 				}
 				if(end <= start){ alert('Ende muss nach dem Start liegen'); return; }
@@ -523,7 +621,7 @@
 			function stopSliderPlay(){
 				if(sliderPlayFrame) cancelAnimationFrame(sliderPlayFrame);
 				sliderPlayFrame = null; sliderPlayStart = null;
-				if(playBtn) playBtn.textContent = '▶';
+				if(playBtn) { playBtn.textContent = '▶'; playBtn.classList.remove('active'); }
 			}
 
 			function startSliderPlay(){
@@ -544,7 +642,7 @@
 				// compute play start so playback begins at current slider position
 				if(!Number.isFinite(cur)) cur = min;
 				sliderPlayStart = performance.now() - (PLAY_DURATION_MS * frac) / playSpeed;
-				if(playBtn) playBtn.textContent = '⏸';
+				if(playBtn) { playBtn.textContent = '⏸'; playBtn.classList.add('active'); }
 				sliderPlayFrame = requestAnimationFrame(function step(now){
 					if(sliderPlayPauseUntil && now < sliderPlayPauseUntil){
 						// still in pause; keep frame loop running
@@ -597,6 +695,7 @@
 			function startLive(){
 				if(liveInterval) return;
 				liveBtn.classList.add('live-active');
+				liveBtn.classList.add('active');
 				liveBtn.textContent = 'Live';
 				// fetch immediately and then every 30 seconds
 				fetchRecent();
@@ -608,6 +707,7 @@
 				clearInterval(liveInterval);
 				liveInterval = null;
 				liveBtn.classList.remove('live-active');
+				liveBtn.classList.remove('active');
 				liveBtn.textContent = 'Live';
 				// keep auto-zoom control visible
 			}
@@ -713,21 +813,26 @@
 							// Request fullscreen for the map element only. If that fails, fall back to pseudo-fullscreen.
 							await requestNativeFullscreen(mapEl);
 							updateFsButtonText(true);
+							fsBtn.classList.add('active');
 						}else{
 							await exitNativeFullscreen();
 							updateFsButtonText(false);
+							fsBtn.classList.remove('active');
 						}
 					}catch(e){
 						console.warn('fullscreen toggle failed, falling back to pseudo-fullscreen', e);
 						// If native attempts fail (some iOS contexts), fall back to pseudo-fullscreen
 						enablePseudoFullscreen();
+						fsBtn.classList.add('active');
 					}
 				}else{
 					// Fallback for browsers without Fullscreen API (notably some mobile browsers)
 					if(document.body.classList.contains('pseudo-fullscreen')){
 						disablePseudoFullscreen();
+						fsBtn.classList.remove('active');
 					}else{
 						enablePseudoFullscreen();
+						fsBtn.classList.add('active');
 					}
 				}
 			});
@@ -735,6 +840,7 @@
 			function onNativeFsChange(){
 				const isFull = isNativeFullscreen();
 				updateFsButtonText(isFull);
+				if(fsBtn) fsBtn.classList.toggle('active', isFull || document.body.classList.contains('pseudo-fullscreen'));
 				setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 200);
 			}
 
@@ -742,6 +848,110 @@
 			document.addEventListener('webkitfullscreenchange', onNativeFsChange);
 			document.addEventListener('mozfullscreenchange', onNativeFsChange);
 			document.addEventListener('MSFullscreenChange', onNativeFsChange);
+
+			// Mobile menu behavior: move `.header-controls` into the slide-over on small screens
+			(function(){
+				const menuBtn = document.getElementById('menuBtn');
+				const mobileBackdrop = document.getElementById('mobileMenuBackdrop');
+				const mobileMenu = document.getElementById('mobileMenu');
+				const mobileClose = document.getElementById('mobileMenuClose');
+				const headerEl = document.querySelector('header');
+				const headerControls = document.querySelector('header .header-controls');
+				const originalParent = headerControls ? headerControls.parentElement : null;
+
+				// footer moving for mobile: move attribution into mobile menu on small screens
+				const footerEl = document.querySelector('footer');
+				const footerOriginalParent = footerEl ? footerEl.parentElement : null;
+				const footerOriginalNext = footerEl ? footerEl.nextSibling : null;
+
+				function moveFooterToMenu(){
+					if(!footerEl || !mobileMenu) return;
+					if(window.innerWidth <= 1630){
+						if(footerEl.parentElement !== mobileMenu){
+							footerEl.classList.add('mobile-footer');
+							mobileMenu.appendChild(footerEl);
+						}
+					} else {
+						if(footerOriginalParent && footerEl.parentElement !== footerOriginalParent){
+							if(footerOriginalNext && footerOriginalNext.parentElement === footerOriginalParent){
+								footerOriginalParent.insertBefore(footerEl, footerOriginalNext);
+							} else {
+								footerOriginalParent.appendChild(footerEl);
+							}
+							footerEl.classList.remove('mobile-footer');
+						}
+					}
+				}
+
+				function openMobileMenu(){
+					if(!mobileBackdrop || !mobileMenu) return;
+					mobileBackdrop.style.display = 'block';
+					mobileBackdrop.setAttribute('aria-hidden','false');
+					setTimeout(()=> mobileMenu.classList.add('open'), 20);
+					if(headerControls && headerControls.parentElement !== mobileMenu) mobileMenu.appendChild(headerControls);
+					document.body.style.overflow = 'hidden';
+				}
+
+				function closeMobileMenu(){
+					if(!mobileBackdrop || !mobileMenu) return;
+					mobileMenu.classList.remove('open');
+					mobileBackdrop.setAttribute('aria-hidden','true');
+					setTimeout(()=>{
+						mobileBackdrop.style.display = 'none';
+						if(headerControls && originalParent && headerControls.parentElement !== originalParent) originalParent.appendChild(headerControls);
+						document.body.style.overflow = '';
+					}, 240);
+				}
+
+				if(menuBtn) menuBtn.addEventListener('click', ()=>{ if(mobileBackdrop && mobileBackdrop.style.display==='block') closeMobileMenu(); else openMobileMenu(); });
+				if(mobileBackdrop) mobileBackdrop.addEventListener('click', (e)=>{ if(e.target === mobileBackdrop) closeMobileMenu(); });
+				if(mobileClose) mobileClose.addEventListener('click', closeMobileMenu);
+
+				// ensure flatpickr inputs are repopulated when opening the mobile menu
+				function refreshDateInputs(){
+					setTimeout(()=>{
+						try{
+							if(typeof flatpickr !== 'undefined'){
+								const startEl = document.getElementById('start');
+								const endEl = document.getElementById('end');
+								if(fpStart && startEl && startEl.value){
+									const parsed = flatpickr.parseDate(startEl.value, 'd.m.Y H:i');
+									if(parsed) fpStart.setDate(parsed, true);
+								}
+								if(fpEnd && endEl && endEl.value){
+									const parsed2 = flatpickr.parseDate(endEl.value, 'd.m.Y H:i');
+									if(parsed2) fpEnd.setDate(parsed2, true);
+								}
+							}
+						}catch(e){console.warn('refreshDateInputs failed', e)}
+					}, 60);
+				}
+
+				// call refresh and move footer when opening the menu
+				const origOpen = openMobileMenu;
+				openMobileMenu = function(){ origOpen(); moveFooterToMenu(); refreshDateInputs(); };
+
+				window.addEventListener('resize', ()=>{
+					moveFooterToMenu();
+					if(window.innerWidth > 1630){
+						if(headerControls && originalParent && headerControls.parentElement !== originalParent) originalParent.appendChild(headerControls);
+						if(mobileBackdrop) mobileBackdrop.style.display = 'none';
+						if(mobileMenu) mobileMenu.classList.remove('open');
+						document.body.style.overflow = '';
+					} else {
+						// ensure header-controls remain removed from header
+						if(headerControls && headerControls.parentElement === originalParent){ /* left in header, will be moved on open */ }
+					}
+				});
+
+				// click feedback is handled by toggling the `active` class immediately elsewhere
+				function wireClickFeedback(root){ /* no-op */ }
+				// ensure footer is in the right place on load
+				moveFooterToMenu();
+				// wire feedback for header and mobile menu
+				wireClickFeedback(document);
+				if(mobileMenu) wireClickFeedback(mobileMenu);
+			})();
 
 			// initial setup
 			setDefaults(); enforceLimits();
