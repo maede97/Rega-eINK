@@ -5,10 +5,20 @@ from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, status
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 DB_PATH = Path(__file__).resolve().with_name("flights.db")
 API_KEYS_PATH = Path(__file__).resolve().with_name("api_keys.txt")
 app = FastAPI(title="REGA Flights API", version="1.0.0")
+
+# Allow browser-based clients to access the API (adjust origins for production)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
