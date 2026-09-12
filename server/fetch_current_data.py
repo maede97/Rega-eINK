@@ -38,10 +38,10 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 def fetch_current_flights() -> list[dict[str, object]]:
     api = FlightRadar24API()
     bounds = api.get_bounds({
-        "tl_y": 47.808455,
-        "tl_x": 5.956080,
-        "br_y": 45.817995,
-        "br_x": 10.492030,
+        "tl_y": 49.0,
+        "tl_x": 5.0,
+        "br_y": 44.0,
+        "br_x": 12.0,
     })
     flights = api.get_flights(airline=AIRLINE_ICAO, bounds=bounds)
 
