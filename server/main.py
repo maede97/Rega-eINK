@@ -193,3 +193,10 @@ def favicon() -> FileResponse:
     if not favicon_path.exists():
         raise HTTPException(status_code=404, detail="favicon.ico not found")
     return FileResponse(favicon_path, media_type="image/x-icon")
+
+@app.get("/apple-touch-icon.png")
+def apple_touch_icon() -> FileResponse:
+    apple_touch_icon_path = WEB_DIR / "apple-touch-icon.png"
+    if not apple_touch_icon_path.exists():
+        raise HTTPException(status_code=404, detail="apple-touch-icon.png not found")
+    return FileResponse(apple_touch_icon_path, media_type="image/png")
