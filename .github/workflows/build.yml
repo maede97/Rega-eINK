@@ -27,3 +27,17 @@ jobs:
 
       - name: Push latest images
         run: cd server && docker compose -f docker-compose.yml push
+  deploy-web:
+    runs-on: ubuntu-latest
+    # copy web/index.html to the gh-pages branch
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web
+          publish_branch: gh-pages
+    
