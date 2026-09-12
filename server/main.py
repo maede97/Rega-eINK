@@ -15,7 +15,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS flights (
-            timestamp TEXT,
+            timestamp numeric,
             callsign TEXT,
             latitude REAL,
             longitude REAL,
@@ -26,7 +26,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS flights_history (
-            observed_at TEXT,
+            observed_at numeric,
             callsign TEXT,
             latitude REAL,
             longitude REAL,
@@ -137,3 +137,30 @@ def get_flights_history(limit: int = 1000, authorization: str | None = Header(de
         for observed_at, callsign, latitude, longitude, recorded_at in rows
     ]
     return JSONResponse(content={"history": payload, "count": len(payload)})
+
+@app.get("/flights/range")
+def get_flights_range(start: str, end: str, authorization: str | None = Header(default=None)) -> JSONResponse:
+    require_valid_api_key(authorization)
+
+    with sqlite3.connect(DB_PATH) as conn:
+        ensure_schema(conn)
+        rows = conn.execute(
+            """
+            SELECT observed_at, callsign, latitude, longitude
+            FROM flights_history
+            WHERE observed_at > ? AND observed_at < ?
+            ORDER BY observed_at DESC
+            """,
+            (start, end),
+        ).fetchall()
+
+    payload = [
+        {
+            "observed_at": observed_at,
+            "callsign": callsign,
+            "latitude": latitude,
+            "longitude": longitude,
+        }
+        for observed_at, callsign, latitude, longitude in rows
+    ]
+    return JSONResponse(content={"flights": payload, "count": len(payload)})

@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     volumes:
       - ./flights.db:/app/flights.db
+      - ./api_keys.txt:/app/api_keys.txt
     restart: unless-stopped
 
   fetcher:

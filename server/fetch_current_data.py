@@ -14,7 +14,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS flights (
-            timestamp TEXT,
+            timestamp numeric,
             callsign TEXT,
             latitude REAL,
             longitude REAL,
@@ -25,11 +25,11 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS flights_history (
-            observed_at TEXT,
+            observed_at numeric,
             callsign TEXT,
             latitude REAL,
             longitude REAL,
-            recorded_at TEXT DEFAULT CURRENT_TIMESTAMP
+            recorded_at numeric DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
