@@ -152,11 +152,27 @@
 			.mobile-menu #autoZoomWrap{margin-left:0}
 			.mobile-menu .time-slider{flex-direction:column;align-items:stretch}
 			.mobile-menu .time-slider input[type=range]{width:100%}
+			/* Mobile: make the timeslider red-themed to match inverted colors */
+			.mobile-menu .time-slider input[type=range]{
+				-webkit-appearance:none;appearance:none;height:6px;border-radius:6px;background:rgba(210,35,42,0.18);outline:none;
+			}
+			.mobile-menu .time-slider input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:rgba(210,35,42,0.18)}
+			.mobile-menu .time-slider input[type=range]::-webkit-slider-thumb{
+				-webkit-appearance:none;margin-top:-5px;width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--rega-red);box-shadow:0 2px 6px rgba(0,0,0,0.06);
+			}
+			.mobile-menu .time-slider input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:rgba(210,35,42,0.18)}
+			.mobile-menu .time-slider input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--rega-red);box-shadow:0 2px 6px rgba(0,0,0,0.06)}
+			.mobile-menu .slider-time{color:var(--rega-red);font-weight:600}
 			.mobile-menu .slider-time{color:var(--muted);min-width:0;text-align:left}
 			.mobile-menu .stats{color:var(--muted)}
 			.header-controls #autoZoomWrap{color:white}
 			.mobile-menu #autoZoomWrap{color:var(--rega-red);font-size:13px;font-weight:600}
 			.mobile-menu #autoZoom{accent-color:var(--rega-red)}
+			/* Style auto-zoom checkbox to match other header inputs */
+			.header-controls #autoZoom{width:18px;height:18px;margin-right:8px;box-sizing:border-box;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:#fff;accent-color:#fff}
+			.header-controls #autoZoomWrap{align-items:center;display:inline-flex;gap:6px}
+			/* Mobile checkbox sizing + accent already set above; ensure consistent sizing */
+			.mobile-menu #autoZoom{width:18px;height:18px;margin-right:8px;border-radius:6px;box-sizing:border-box}
 			.mobile-menu .mobile-footer{margin-top:12px;color:var(--muted);font-size:12px;text-align:center;padding-top:8px;border-top:1px solid rgba(0,0,0,0.04);position:static !important;right:auto;bottom:auto}
 
 			/* persistent active state for toggled controls */
