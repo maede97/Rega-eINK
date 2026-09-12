@@ -187,15 +187,9 @@ def root() -> FileResponse:
         raise HTTPException(status_code=404, detail="index.html not found")
     return FileResponse(index, media_type="text/html")
 
-
-@app.get("/{full_path:path}")
-def spa(full_path: str) -> FileResponse:
-    # If the requested path matches a file in the web directory, serve it.
-    candidate = WEB_DIR / full_path
-    if candidate.exists() and candidate.is_file():
-        return FileResponse(candidate)
-    # Otherwise fall back to the SPA index so client-side routing works.
-    index = WEB_DIR / "index.html"
-    if index.exists():
-        return FileResponse(index, media_type="text/html")
-    raise HTTPException(status_code=404, detail="Not found")
+@app.get("/favicon.ico")
+def favicon() -> FileResponse:
+    favicon_path = WEB_DIR / "favicon.ico"
+    if not favicon_path.exists():
+        raise HTTPException(status_code=404, detail="favicon.ico not found")
+    return FileResponse(favicon_path, media_type="image/x-icon")
