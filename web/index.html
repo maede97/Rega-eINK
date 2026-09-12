@@ -3,6 +3,8 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<title>REGA — Flugverlauf</title>
 		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 		<style>
@@ -60,6 +62,22 @@
 				.time-slider input[type=range]{width:140px}
 				.slider-time{min-width:80px;font-size:12px}
 				footer{left:12px;right:auto}
+			}
+
+			/* Pseudo-fullscreen fallback for mobile browsers without Fullscreen API */
+			body.pseudo-fullscreen header,
+			body.pseudo-fullscreen .container > .panel:nth-child(2),
+			body.pseudo-fullscreen footer,
+			body.pseudo-fullscreen .modal-backdrop {
+				display:none !important;
+			}
+			body.pseudo-fullscreen #map{
+				position:fixed !important;
+				inset:0 !important;
+				width:100% !important;
+				height:100% !important;
+				border-radius:0 !important;
+				z-index:2147483647 !important;
 			}
 		</style>
 	</head>
@@ -469,23 +487,90 @@
 			liveBtn.addEventListener('click', toggleLive);
 
 			const fsBtn = document.getElementById('fullscreenBtn');
+
+			function hasNativeFullscreen(){
+				return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || document.msFullscreenEnabled);
+			}
+
+			function isNativeFullscreen(){
+				return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+			}
+
+			function requestNativeFullscreen(el){
+				return new Promise((resolve, reject)=>{
+					if(!el) return reject(new Error('No element provided'));
+					try{
+						if(el.requestFullscreen) return resolve(el.requestFullscreen());
+						if(el.webkitRequestFullscreen) return resolve(el.webkitRequestFullscreen());
+						if(el.mozRequestFullScreen) return resolve(el.mozRequestFullScreen());
+						if(el.msRequestFullscreen) return resolve(el.msRequestFullscreen());
+						return reject(new Error('No native requestFullscreen available'));
+					}catch(err){ reject(err); }
+				});
+			}
+
+			function exitNativeFullscreen(){
+				if(document.exitFullscreen) return document.exitFullscreen();
+				if(document.webkitExitFullscreen) return document.webkitExitFullscreen();
+				if(document.mozCancelFullScreen) return document.mozCancelFullScreen();
+				if(document.msExitFullscreen) return document.msExitFullscreen();
+				return Promise.reject(new Error('No native exitFullscreen available'));
+			}
+
+			function updateFsButtonText(isFull){
+				fsBtn.textContent = isFull ? 'Vollbild beenden' : 'Vollbild';
+			}
+
+			function enablePseudoFullscreen(){
+				document.body.classList.add('pseudo-fullscreen');
+				updateFsButtonText(true);
+				setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 200);
+			}
+
+			function disablePseudoFullscreen(){
+				document.body.classList.remove('pseudo-fullscreen');
+				updateFsButtonText(false);
+				setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 200);
+			}
+
 			fsBtn.addEventListener('click', async ()=>{
 				const mapEl = document.getElementById('map');
-				try{
-					if(!document.fullscreenElement){
-						await mapEl.requestFullscreen();
-					}else{
-						await document.exitFullscreen();
+				// Prefer native fullscreen when available
+				if(hasNativeFullscreen()){
+					try{
+						if(!isNativeFullscreen()){
+							// Try the map element, then documentElement, then map parent as fallbacks
+							await requestNativeFullscreen(mapEl).catch(()=>requestNativeFullscreen(document.documentElement)).catch(()=>requestNativeFullscreen(mapEl.parentElement));
+							updateFsButtonText(true);
+						}else{
+							await exitNativeFullscreen();
+							updateFsButtonText(false);
+						}
+					}catch(e){
+						console.warn('fullscreen toggle failed, falling back to pseudo-fullscreen', e);
+						// If native attempts fail (some iOS contexts), fall back to pseudo-fullscreen
+						enablePseudoFullscreen();
 					}
-				}catch(e){console.warn('fullscreen toggle failed', e)}
+				}else{
+					// Fallback for browsers without Fullscreen API (notably some mobile browsers)
+					if(document.body.classList.contains('pseudo-fullscreen')){
+						disablePseudoFullscreen();
+					}else{
+						enablePseudoFullscreen();
+					}
+				}
 			});
 
-			document.addEventListener('fullscreenchange', ()=>{
-				const isFull = !!document.fullscreenElement;
-				fsBtn.textContent = isFull ? 'Vollbild beenden' : 'Vollbild';
-				// Leaflet needs to invalidate size when container changes
+			function onNativeFsChange(){
+				const isFull = isNativeFullscreen();
+				updateFsButtonText(isFull);
 				setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 200);
-			});
+			}
+
+			document.addEventListener('fullscreenchange', onNativeFsChange);
+			document.addEventListener('webkitfullscreenchange', onNativeFsChange);
+			document.addEventListener('mozfullscreenchange', onNativeFsChange);
+			document.addEventListener('MSFullscreenChange', onNativeFsChange);
 
 			// initial setup
 			setDefaults(); enforceLimits();
