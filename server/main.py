@@ -4,11 +4,16 @@ import sqlite3
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 DB_PATH = Path(__file__).resolve().with_name("flights.db")
 API_KEYS_PATH = Path(__file__).resolve().with_name("api_keys.txt")
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+WEB_DIR = PROJECT_ROOT / "web"
+
+
 app = FastAPI(title="REGA Flights API", version="1.0.0")
 
 # Allow browser-based clients to access the API (adjust origins for production)
@@ -116,7 +121,6 @@ def get_flights(limit: int = 1000, authorization: str | None = Header(default=No
     ]
     return JSONResponse(content={"flights": payload, "count": len(payload)})
 
-
 @app.get("/flights/history")
 def get_flights_history(limit: int = 1000, authorization: str | None = Header(default=None)) -> JSONResponse:
     require_valid_api_key(authorization)
@@ -174,3 +178,24 @@ def get_flights_range(start: str, end: str, authorization: str | None = Header(d
         for observed_at, callsign, latitude, longitude in rows
     ]
     return JSONResponse(content={"flights": payload, "count": len(payload)})
+
+
+@app.get("/")
+def root() -> FileResponse:
+    index = WEB_DIR / "index.html"
+    if not index.exists():
+        raise HTTPException(status_code=404, detail="index.html not found")
+    return FileResponse(index, media_type="text/html")
+
+
+@app.get("/{full_path:path}")
+def spa(full_path: str) -> FileResponse:
+    # If the requested path matches a file in the web directory, serve it.
+    candidate = WEB_DIR / full_path
+    if candidate.exists() and candidate.is_file():
+        return FileResponse(candidate)
+    # Otherwise fall back to the SPA index so client-side routing works.
+    index = WEB_DIR / "index.html"
+    if index.exists():
+        return FileResponse(index, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Not found")

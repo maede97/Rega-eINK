@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>REGA — Flugverlauf</title>
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+		<style>
+			:root{
+				--rega-red:#d2232a;
+				--bg:#ffffff;
+				--muted:#6b6b6b;
+				--card:#f8f8f8;
+			}
+			html,body,#map{height:100%;}
+			body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;color:#222;background:var(--bg);}
+			header{background:var(--rega-red);color:white;padding:10px 16px;display:flex;align-items:center;gap:12px;justify-content:space-between}
+			.logo{display:flex;align-items:center;gap:12px}
+			.logo .shield{width:44px;height:44px;background:white;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--rega-red);font-weight:700}
+			.title{font-size:18px;font-weight:600}
+			.container{display:grid;grid-template-columns:1fr 360px;gap:16px;padding:16px;height:calc(100vh - 68px)}
+			.header-controls{margin-left:auto;display:flex;align-items:center;gap:8px}
+			.time-slider{display:flex;align-items:center;gap:8px;margin-left:12px}
+			.time-slider input[type=range]{width:260px}
+			.slider-time{font-size:13px;color:rgba(255,255,255,0.95);min-width:170px;text-align:center}
+			.header-controls input#start, .header-controls input#end {width:170px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.95);color:#000}
+			.header-controls button{padding:8px 10px;border-radius:6px;font-size:13px}
+			.header-controls .secondary{background:transparent;color:white;border:1px solid rgba(255,255,255,0.18)}
+			.header-controls select.secondary{padding:8px 10px;border-radius:6px;background:transparent;color:white;border:1px solid rgba(255,255,255,0.18)}
+			.header-controls button.live-active{background:white;color:var(--rega-red);font-weight:700}
+			.panel{background:var(--card);border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column}
+			#map{border-radius:8px}
+			.controls{display:flex;flex-direction:column;gap:8px}
+			label{font-size:12px;color:var(--muted)}
+			input[type=text]{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd}
+			.row{display:flex;gap:8px}
+			button{background:var(--rega-red);color:white;border:0;padding:10px 12px;border-radius:6px;cursor:pointer}
+			button.secondary{background:#eee;color:#222}
+			.stats{margin-top:8px;font-size:14px}
+			.list{margin-top:8px;overflow:auto;padding:6px;background:white;border-radius:6px;border:1px solid #eee;flex:1}
+			.flight-item{padding:6px;border-bottom:1px solid #f1f1f1}
+			.muted{color:var(--muted);font-size:12px}
+
+			/* Modal */
+			.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999}
+			.modal{background:white;padding:20px;border-radius:8px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+			.modal h2{margin:0 0 8px 0}
+			.modal .hint{color:var(--muted);font-size:13px;margin-bottom:12px}
+
+			footer{position:fixed;right:16px;bottom:16px;background:rgba(255,255,255,0.9);padding:8px 12px;border-radius:999px;border:1px solid #eee;font-size:12px}
+
+			@media (max-width:900px){
+				.container{grid-template-columns:1fr;grid-auto-rows:1fr;height:calc(100vh - 56px);padding:8px}
+				/* hide the right-side list/stats panel on mobile to show only the map */
+				.container > .panel:nth-child(2){display:none}
+				/* make header controls wrap and compact */
+				header{padding:8px 10px;flex-direction:column;align-items:flex-start}
+				.header-controls{gap:6px;flex-wrap:wrap;align-items:center;width:100%;margin-top:8px}
+				.header-controls input#start, .header-controls input#end {width:140px;padding:6px}
+				.time-slider input[type=range]{width:140px}
+				.slider-time{min-width:80px;font-size:12px}
+				footer{left:12px;right:auto}
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<div class="logo">
+				<div class="shield">REGA</div>
+				<div>
+					<div class="title">REGA Flugverlauf</div>
+				</div>
+			</div>
+			<div class="header-controls">
+				<input id="start" type="text" placeholder="Start" />
+				<input id="end" type="text" placeholder="Ende" />
+				<button id="fetchBtn" class="secondary">Abrufen</button>
+								<select id="presetSelect" class="secondary" aria-label="Schnelle Auswahl">
+									<option value="">Voreinstellungen</option>
+									<option value="1">1 Stunde</option>
+									<option value="6">6 Stunden</option>
+									<option value="24">24 Stunden</option>
+									<option value="168">7 Tage</option>
+								</select>
+								<button id="liveBtn" class="secondary">Live</button>
+								<label id="autoZoomWrap" style="display:none;align-items:center;gap:6px;color:white;font-size:13px;margin-left:6px">
+									<input id="autoZoom" type="checkbox" style="width:16px;height:16px;margin-right:6px" />Auto-Zoom
+								</label>
+				<div class="time-slider">
+					<input id="timeSlider" type="range" min="0" max="100" step="60" />
+					<div id="sliderTime" class="slider-time">—</div>
+				</div>
+				<button id="fullscreenBtn" class="secondary">Vollbild</button>
+			</div>
+		</header>
+
+		<div class="container">
+			<div class="panel">
+				<div id="map" style="flex:1"></div>
+			</div>
+
+			<div class="panel">
+				<div style="display:flex;flex-direction:column;gap:8px">
+					<div class="stats" id="stats">Keine Daten geladen</div>
+					<div class="list" id="list"></div>
+					<div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+						<button id="clearKey" class="secondary">API-Schlüssel ändern</button>
+						<div class="muted" style="flex:1;text-align:right">Daten älter als zwei Wochen sind nicht verfügbar.</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<footer>Bereitgestellt von Flightradar24 via rega.hueppis.com</footer>
+
+		<div id="keyModal" class="modal-backdrop" style="display:none">
+			<div class="modal">
+				<h2>API-Schlüssel eingeben</h2>
+				<div class="hint">Fügen Sie Ihren API-Schlüssel ein, um auf die REGA-Flugdaten zuzugreifen. Lokal im Browser gespeichert.</div>
+				<input id="apiKeyInput" type="text" style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:12px" placeholder="Bearer token..." />
+				<div style="display:flex;gap:8px;justify-content:flex-end">
+					<button id="saveKey">Speichern</button>
+				</div>
+			</div>
+		</div>
+
+		<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+		<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+		<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js"></script>
+		<script>
+			const API_BASE = 'https://rega.hueppis.com/flights/range';
+			const MAX_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+			const map = L.map('map', {zoomControl:true}).setView([46.8,8.2],8);
+			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+
+			const markersLayer = L.layerGroup().addTo(map);
+			const fullPathsLayer = L.layerGroup().addTo(map);
+			const progressPathsLayer = L.layerGroup().addTo(map);
+			let flightData = {};
+			const slider = document.getElementById('timeSlider');
+			const sliderTimeLabel = document.getElementById('sliderTime');
+
+			function formatSwiss(ts, withSeconds=false){
+				if(!ts) return '—';
+				const d = new Date(ts*1000);
+				const pad = (n)=>String(n).padStart(2,'0');
+				const dd = pad(d.getDate());
+				const MM = pad(d.getMonth()+1);
+				const yyyy = d.getFullYear();
+				const hh = pad(d.getHours());
+				const mm = pad(d.getMinutes());
+				if(withSeconds){
+					const ss = pad(d.getSeconds());
+					return `${dd}.${MM}.${yyyy} ${hh}:${mm}:${ss}`;
+				}
+				return `${dd}.${MM}.${yyyy} ${hh}:${mm}`;
+			}
+
+			// flatpickr instances for consistent Swiss format: dd.mm.yyyy HH:MM
+			let fpStart = null, fpEnd = null;
+			const fpOptions = { enableTime:true, time_24hr:true, dateFormat:'d.m.Y H:i', locale: 'de', minuteIncrement:1, allowInput:true };
+			try{
+				fpStart = flatpickr('#start', fpOptions);
+				fpEnd = flatpickr('#end', fpOptions);
+                
+			}catch(e){ console.warn('flatpickr init failed, falling back to text inputs', e); }
+
+			function showModal(show){
+				document.getElementById('keyModal').style.display = show ? 'flex' : 'none';
+			}
+
+			function loadApiKey(){
+				return localStorage.getItem('rega_api_key') || '';
+			}
+
+			function saveApiKey(k){
+				localStorage.setItem('rega_api_key', k);
+			}
+
+			function clearApiKey(){
+				localStorage.removeItem('rega_api_key');
+				showModal(true);
+			}
+
+			document.getElementById('saveKey').addEventListener('click', ()=>{
+				const v = document.getElementById('apiKeyInput').value.trim();
+				if(!v){ alert('Bitte API-Schlüssel eingeben'); return; }
+				saveApiKey(v);
+				showModal(false);
+			});
+
+			document.getElementById('clearKey').addEventListener('click', ()=>{
+				clearApiKey();
+			});
+
+			// initialize time inputs with sensible defaults
+			function setDefaults(){
+				const now = new Date();
+				const oneHourAgo = new Date(now.getTime() - 60*60*1000);
+				if(fpEnd) fpEnd.setDate(now, true);
+				else { const endEl = document.getElementById('end'); endEl.value = toSwissLocal(now); endEl.dispatchEvent(new Event('input',{bubbles:true})); endEl.dispatchEvent(new Event('change',{bubbles:true})); }
+				if(fpStart) fpStart.setDate(oneHourAgo, true);
+				else { const startEl = document.getElementById('start'); startEl.value = toSwissLocal(oneHourAgo); startEl.dispatchEvent(new Event('input',{bubbles:true})); startEl.dispatchEvent(new Event('change',{bubbles:true})); }
+			}
+
+			function toSwissLocal(d){
+				const pad=(n)=>String(n).padStart(2,'0');
+				const yyyy=d.getFullYear();
+				const MM=pad(d.getMonth()+1);
+				const dd=pad(d.getDate());
+				const hh=pad(d.getHours());
+				const mm=pad(d.getMinutes());
+				return `${dd}.${MM}.${yyyy} ${hh}:${mm}`;
+			}
+
+			function fromInputToUnix(fpInstance, inputEl){
+				// prefer flatpickr selected date when available
+				if(fpInstance && fpInstance.selectedDates && fpInstance.selectedDates.length){
+					return Math.floor(fpInstance.selectedDates[0].getTime()/1000);
+				}
+				// fallback: parse Swiss format dd.mm.yyyy HH:MM
+				const v = (inputEl && inputEl.value) || '';
+				const m = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$/);
+				if(!m){ return NaN; }
+				const dd = Number(m[1]), MM = Number(m[2])-1, yyyy = Number(m[3]), hh = Number(m[4]), mm = Number(m[5]);
+				return Math.floor(new Date(yyyy, MM, dd, hh, mm).getTime()/1000);
+			}
+
+			function enforceLimits(){
+				const now = new Date();
+				const minDate = new Date(now.getTime() - MAX_LOOKBACK_MS);
+				if(fpStart){ fpStart.set('maxDate', now); fpStart.set('minDate', minDate); }
+				if(fpEnd){ fpEnd.set('maxDate', now); fpEnd.set('minDate', minDate); }
+				// ensure start not older than 14d
+				if(fpStart && fpStart.selectedDates && fpStart.selectedDates.length && fpStart.selectedDates[0] < minDate){ fpStart.setDate(minDate, true); }
+				else if(!fpStart){ const startEl = document.getElementById('start'); if(new Date(startEl.value) < minDate) { startEl.value = toSwissLocal(minDate); startEl.dispatchEvent(new Event('input',{bubbles:true})); startEl.dispatchEvent(new Event('change',{bubbles:true})); } }
+				if(fpEnd && fpEnd.selectedDates && fpEnd.selectedDates.length && fpEnd.selectedDates[0] > now){ fpEnd.setDate(now, true); }
+				else if(!fpEnd){ const endEl = document.getElementById('end'); if(new Date(endEl.value) > now) { endEl.value = toSwissLocal(now); endEl.dispatchEvent(new Event('input',{bubbles:true})); endEl.dispatchEvent(new Event('change',{bubbles:true})); } }
+				if(fpStart && fpEnd && fpStart.selectedDates.length && fpEnd.selectedDates.length && fpStart.selectedDates[0].getTime() >= fpEnd.selectedDates[0].getTime()){
+					const e = fpEnd.selectedDates[0];
+					const s = new Date(e.getTime() - 60*60*1000);
+					fpStart.setDate(s, true);
+				} else if(!fpStart && !fpEnd){
+					const startEl = document.getElementById('start'); const endEl = document.getElementById('end');
+					if(new Date(startEl.value) >= new Date(endEl.value)){
+						const e = new Date(endEl.value);
+						const s = new Date(e.getTime() - 60*60*1000);
+						startEl.value = toSwissLocal(s);
+						startEl.dispatchEvent(new Event('input',{bubbles:true})); startEl.dispatchEvent(new Event('change',{bubbles:true}));
+					}
+				}
+			}
+
+			document.getElementById('presetSelect').addEventListener('change', (e)=>{
+				const v = Number(e.target.value);
+				if(v>0) setRangeRelative(v);
+			});
+
+			function setRangeRelative(hours){
+				const end = new Date();
+				const start = new Date(end.getTime() - hours*60*60*1000);
+				const minDate = new Date(end.getTime() - MAX_LOOKBACK_MS);
+				if(start < minDate) start.setTime(minDate.getTime());
+				// Ensure flatpickr and input value stay in sync. Format -> parse -> set.
+				if(fpEnd){
+					try{
+						const fmt = fpEnd.formatDate(end, fpEnd.config.dateFormat || fpOptions.dateFormat);
+						fpEnd.input.value = fmt;
+						const parsed = fpEnd.parseDate(fmt, fpEnd.config.dateFormat || fpOptions.dateFormat) || end;
+						fpEnd.setDate(parsed, true);
+						fpEnd.input.dispatchEvent(new Event('input',{bubbles:true}));
+						fpEnd.input.dispatchEvent(new Event('change',{bubbles:true}));
+					}catch(e){
+						try{ fpEnd.setDate(end, true); }catch(_){ }
+					}
+				} else {
+					const endEl = document.getElementById('end'); endEl.value = toSwissLocal(end);
+					endEl.dispatchEvent(new Event('input',{bubbles:true})); endEl.dispatchEvent(new Event('change',{bubbles:true}));
+				}
+
+				if(fpStart){
+					try{
+						const fmt = fpStart.formatDate(start, fpStart.config.dateFormat || fpOptions.dateFormat);
+						fpStart.input.value = fmt;
+						const parsed = fpStart.parseDate(fmt, fpStart.config.dateFormat || fpOptions.dateFormat) || start;
+						fpStart.setDate(parsed, true);
+						fpStart.input.dispatchEvent(new Event('input',{bubbles:true}));
+						fpStart.input.dispatchEvent(new Event('change',{bubbles:true}));
+					}catch(e){
+						try{ fpStart.setDate(start, true); }catch(_){ }
+					}
+				} else {
+					const startEl = document.getElementById('start'); startEl.value = toSwissLocal(start);
+					startEl.dispatchEvent(new Event('input',{bubbles:true})); startEl.dispatchEvent(new Event('change',{bubbles:true}));
+				}
+			}
+
+			document.getElementById('fetchBtn').addEventListener('click', fetchAndRender);
+
+			async function fetchAndRender(){
+				enforceLimits();
+				const apiKey = loadApiKey();
+				if(!apiKey){ showModal(true); return; }
+				const start = fromInputToUnix(fpStart, document.getElementById('start'));
+				const end = fromInputToUnix(fpEnd, document.getElementById('end'));
+                
+				if(end <= start){ alert('Ende muss nach dem Start liegen'); return; }
+				// call API
+				const url = `${API_BASE}?start=${start}&end=${end}`;
+				document.getElementById('stats').textContent = 'Abrufen…';
+				try{
+					const res = await fetch(url, { headers: { 'Authorization': 'Bearer '+apiKey } });
+					if(!res.ok){
+						const txt = await res.text();
+						throw new Error(`${res.status} ${res.statusText}: ${txt}`);
+					}
+					const data = await res.json();
+					renderFlights(data.flights || [], start, end);
+				}catch(err){
+					console.error(err);
+					alert('Fehler beim Abrufen der Flugdaten: '+err.message);
+					document.getElementById('stats').textContent = 'Fehler beim Abrufen der Daten';
+				}
+			}
+
+			function renderFlights(flights, start, end){
+				fullPathsLayer.clearLayers();
+				progressPathsLayer.clearLayers();
+				markersLayer.clearLayers();
+				document.getElementById('list').innerHTML = '';
+				if(!flights || flights.length===0){
+					document.getElementById('stats').textContent = 'Keine Flüge für diesen Zeitraum gefunden';
+					slider.min = start; slider.max = end; slider.value = end; slider.disabled = true; sliderTimeLabel.textContent = '—';
+					return;
+				}
+
+				// group points by callsign
+				flightData = {};
+				flights.forEach(f => {
+					const ts = Number(f.observed_at);
+					const lat = Number(f.latitude);
+					const lon = Number(f.longitude);
+					if(!flightData[f.callsign]) flightData[f.callsign]=[];
+					flightData[f.callsign].push({ts, lat, lon});
+				});
+				Object.keys(flightData).forEach(c => flightData[c].sort((a,b)=>a.ts-b.ts));
+
+				const callsigns = Object.keys(flightData);
+				document.getElementById('stats').textContent = `Zeige ${callsigns.length} Helikopter (letzte bekannte Positionen)`;
+
+				const bounds = [];
+				// draw faded full paths (rega red)
+				callsigns.forEach((callsign, idx) => {
+					const pts = flightData[callsign].map(p=>[p.lat,p.lon]);
+					if(pts.length>0){
+						L.polyline(pts, {color:'rgba(210,35,42,0.25)', weight:2, opacity:0.9}).addTo(fullPathsLayer);
+						bounds.push(...pts);
+					}
+				});
+
+				// setup slider
+				slider.min = start;
+				slider.max = end;
+				slider.step = Math.max(1, Math.floor((end - start) / 300));
+				slider.value = end;
+				slider.disabled = false;
+
+				updateForTime(end);
+			}
+
+			function formatTimeShortUnix(ts){
+				return formatSwiss(ts, false);
+			}
+
+			function updateForTime(unixTs){
+				// unixTs in seconds
+				progressPathsLayer.clearLayers();
+				markersLayer.clearLayers();
+				document.getElementById('list').innerHTML = '';
+
+				const callsigns = Object.keys(flightData);
+				document.getElementById('stats').textContent = `Zeige ${callsigns.length} Helikopter (letzte bekannte Positionen)`;
+
+				const bounds = [];
+				callsigns.forEach((callsign, idx)=>{
+					const pts = (flightData[callsign]||[]).filter(p=>p.ts <= unixTs);
+					if(pts.length===0) return;
+					const latlngs = pts.map(p=>[p.lat,p.lon]);
+					const color = 'rgba(210,35,42,0.95)';
+					L.polyline(latlngs, {color, weight:3, opacity:0.95}).addTo(progressPathsLayer);
+					const last = pts[pts.length-1];
+					const m = L.circleMarker([last.lat,last.lon], {radius:8,fillColor:color, color:'#fff', weight:1, fillOpacity:0.95});
+					m.bindPopup(`<b>${callsign}</b><br>${formatTimeShortUnix(last.ts)}<br>${last.lat.toFixed(5)}, ${last.lon.toFixed(5)}`);
+					m.addTo(markersLayer);
+					bounds.push([last.lat,last.lon]);
+
+					const item = document.createElement('div'); item.className='flight-item';
+					item.innerHTML = `<strong>${callsign}</strong><div class='muted'>${formatTimeShortUnix(last.ts)} — ${last.lat.toFixed(4)}, ${last.lon.toFixed(4)}</div>`;
+					item.addEventListener('click', ()=>{ map.panTo([last.lat,last.lon]); m.openPopup(); });
+					document.getElementById('list').appendChild(item);
+				});
+				// Do not change map view while scrubbing the slider.
+				// Keep this commented: if(bounds.length) map.fitBounds(bounds, {padding:[40,40]});
+				sliderTimeLabel.textContent = formatTimeShortUnix(unixTs);
+			}
+
+			slider.addEventListener('input', ()=>{
+				const t = Number(slider.value);
+				updateForTime(t);
+			});
+
+			let liveInterval = null;
+			const liveBtn = document.getElementById('liveBtn');
+
+			function startLive(){
+				if(liveInterval) return;
+				liveBtn.classList.add('live-active');
+				liveBtn.textContent = 'Live ▴';
+				// show auto-zoom control when live is active
+				document.getElementById('autoZoomWrap').style.display = 'inline-flex';
+				// fetch immediately and then every 30s
+				fetchRecent();
+				liveInterval = setInterval(fetchRecent, 30_000);
+			}
+
+			function stopLive(){
+				if(!liveInterval) return;
+				clearInterval(liveInterval);
+				liveInterval = null;
+				liveBtn.classList.remove('live-active');
+				liveBtn.textContent = 'Live';
+				// hide auto-zoom control when live stops
+				document.getElementById('autoZoomWrap').style.display = 'none';
+			}
+
+			function toggleLive(){
+				if(liveInterval) stopLive(); else startLive();
+			}
+
+			async function fetchRecent(){
+				const apiKey = loadApiKey();
+				if(!apiKey){ showModal(true); return; }
+				const end = Math.floor(Date.now()/1000);
+				const start = end - 5*60; // last 5 minutes
+				try{
+					const url = `${API_BASE}?start=${start}&end=${end}`;
+					const res = await fetch(url, { headers: { 'Authorization': 'Bearer '+apiKey } });
+					if(!res.ok){ console.warn('Live fetch failed', res.status); return; }
+					const data = await res.json();
+					renderFlights(data.flights || [], start, end);
+					// if auto-zoom is enabled, fit map to last-known points
+					try{
+						if(document.getElementById('autoZoom') && document.getElementById('autoZoom').checked){
+							const bounds = [];
+							Object.keys(flightData).forEach(c=>{
+								const pts = flightData[c];
+								if(!pts || pts.length===0) return;
+								const last = pts[pts.length-1];
+								bounds.push([last.lat,last.lon]);
+							});
+							if(bounds.length) map.fitBounds(bounds, {padding:[40,40]});
+						}
+					}catch(e){console.warn('auto-zoom failed', e)}
+				}catch(err){ console.error('Live fetch error', err); }
+			}
+
+			liveBtn.addEventListener('click', toggleLive);
+
+			const fsBtn = document.getElementById('fullscreenBtn');
+			fsBtn.addEventListener('click', async ()=>{
+				const mapEl = document.getElementById('map');
+				try{
+					if(!document.fullscreenElement){
+						await mapEl.requestFullscreen();
+					}else{
+						await document.exitFullscreen();
+					}
+				}catch(e){console.warn('fullscreen toggle failed', e)}
+			});
+
+			document.addEventListener('fullscreenchange', ()=>{
+				const isFull = !!document.fullscreenElement;
+				fsBtn.textContent = isFull ? 'Vollbild beenden' : 'Vollbild';
+				// Leaflet needs to invalidate size when container changes
+				setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 200);
+			});
+
+			// initial setup
+			setDefaults(); enforceLimits();
+			// show modal on first load if key missing
+			const existing = loadApiKey();
+			if(!existing){ showModal(true); } else { document.getElementById('apiKeyInput').value = existing; }
+
+		</script>
+	</body>
+</html>

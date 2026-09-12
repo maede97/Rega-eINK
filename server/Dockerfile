@@ -7,11 +7,13 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends cron && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
+COPY server/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py ./main.py
-COPY fetch_current_data.py ./fetch_current_data.py
+COPY server/main.py ./main.py
+COPY server/fetch_current_data.py ./fetch_current_data.py
+
+COPY web ./web
 
 EXPOSE 8000
 
