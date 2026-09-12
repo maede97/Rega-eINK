@@ -177,6 +177,8 @@
 			}
 
 			// flatpickr instances for consistent Swiss format: dd.mm.yyyy HH:MM
+
+			let lastPresetRange = null; // { startUnix, endUnix, ts }
 			let fpStart = null, fpEnd = null;
 			const fpOptions = { enableTime:true, time_24hr:true, dateFormat:'d.m.Y H:i', locale: 'de', minuteIncrement:1, allowInput:true };
 			try{
@@ -236,14 +238,30 @@
 			function fromInputToUnix(fpInstance, inputEl){
 				// prefer flatpickr selected date when available
 				if(fpInstance && fpInstance.selectedDates && fpInstance.selectedDates.length){
-					return Math.floor(fpInstance.selectedDates[0].getTime()/1000);
+					const v = Math.floor(fpInstance.selectedDates[0].getTime()/1000);
+					return v;
+				}
+				// If flatpickr instance exists but hasn't populated selectedDates yet
+				// (race after setDate), try to parse the input value using
+				// flatpickr's parseDate helper as a fallback.
+				if(fpInstance && (!fpInstance.selectedDates || fpInstance.selectedDates.length===0) && inputEl && inputEl.value){
+					try{
+						if(typeof flatpickr !== 'undefined' && flatpickr.parseDate){
+							const parsed = flatpickr.parseDate(inputEl.value, 'd.m.Y H:i');
+							if(parsed instanceof Date && !isNaN(parsed.getTime())){
+								const v = Math.floor(parsed.getTime()/1000);
+								return v;
+							}
+						}
+					}catch(e){}
 				}
 				// fallback: parse Swiss format dd.mm.yyyy HH:MM
 				const v = (inputEl && inputEl.value) || '';
 				const m = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$/);
-				if(!m){ return NaN; }
+				if(!m) return NaN;
 				const dd = Number(m[1]), MM = Number(m[2])-1, yyyy = Number(m[3]), hh = Number(m[4]), mm = Number(m[5]);
-				return Math.floor(new Date(yyyy, MM, dd, hh, mm).getTime()/1000);
+				const out = Math.floor(new Date(yyyy, MM, dd, hh, mm).getTime()/1000);
+				return out;
 			}
 
 			function enforceLimits(){
@@ -277,42 +295,48 @@
 			});
 
 			function setRangeRelative(hours){
+
+				// Switching to a preset means leaving Live mode first.
+				if(liveInterval) stopLive();
+
 				const end = new Date();
-				const start = new Date(end.getTime() - hours*60*60*1000);
+				const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
 				const minDate = new Date(end.getTime() - MAX_LOOKBACK_MS);
+
 				if(start < minDate) start.setTime(minDate.getTime());
-				// Ensure flatpickr and input value stay in sync. Format -> parse -> set.
+
+				// Let Flatpickr manage its own input value.
 				if(fpEnd){
+					fpEnd.setDate(end, true);
+					try{ if(fpEnd.selectedDates) fpEnd.selectedDates = [end]; }catch(e){}
+					// record unix fallback in case flatpickr/DOM are briefly out-of-sync
 					try{
-						const fmt = fpEnd.formatDate(end, fpEnd.config.dateFormat || fpOptions.dateFormat);
-						fpEnd.input.value = fmt;
-						const parsed = fpEnd.parseDate(fmt, fpEnd.config.dateFormat || fpOptions.dateFormat) || end;
-						fpEnd.setDate(parsed, true);
-						fpEnd.input.dispatchEvent(new Event('input',{bubbles:true}));
-						fpEnd.input.dispatchEvent(new Event('change',{bubbles:true}));
-					}catch(e){
-						try{ fpEnd.setDate(end, true); }catch(_){ }
-					}
+						lastPresetRange = { startUnix: Math.floor(start.getTime()/1000), endUnix: Math.floor(end.getTime()/1000), ts: Date.now() };
+					}catch(e){}
+					try{ fpEnd.input.value = toSwissLocal(end); }catch(e){}
+					// also update the underlying input element and fire events to keep
+					// `fromInputToUnix` parsing robust in case flatpickr hasn't populated
+					// `selectedDates` yet (race conditions after live updates).
+					const endEl = document.getElementById('end');
+					endEl.value = toSwissLocal(end);
+					endEl.dispatchEvent(new Event('input',{bubbles:true}));
+					endEl.dispatchEvent(new Event('change',{bubbles:true}));
 				} else {
-					const endEl = document.getElementById('end'); endEl.value = toSwissLocal(end);
-					endEl.dispatchEvent(new Event('input',{bubbles:true})); endEl.dispatchEvent(new Event('change',{bubbles:true}));
+					document.getElementById('end').value = toSwissLocal(end);
 				}
 
 				if(fpStart){
-					try{
-						const fmt = fpStart.formatDate(start, fpStart.config.dateFormat || fpOptions.dateFormat);
-						fpStart.input.value = fmt;
-						const parsed = fpStart.parseDate(fmt, fpStart.config.dateFormat || fpOptions.dateFormat) || start;
-						fpStart.setDate(parsed, true);
-						fpStart.input.dispatchEvent(new Event('input',{bubbles:true}));
-						fpStart.input.dispatchEvent(new Event('change',{bubbles:true}));
-					}catch(e){
-						try{ fpStart.setDate(start, true); }catch(_){ }
-					}
+					fpStart.setDate(start, true);
+					try{ if(fpStart.selectedDates) fpStart.selectedDates = [start]; }catch(e){}
+					try{ fpStart.input.value = toSwissLocal(start); }catch(e){}
+					const startEl = document.getElementById('start');
+					startEl.value = toSwissLocal(start);
+					startEl.dispatchEvent(new Event('input',{bubbles:true}));
+					startEl.dispatchEvent(new Event('change',{bubbles:true}));
 				} else {
-					const startEl = document.getElementById('start'); startEl.value = toSwissLocal(start);
-					startEl.dispatchEvent(new Event('input',{bubbles:true})); startEl.dispatchEvent(new Event('change',{bubbles:true}));
+					document.getElementById('start').value = toSwissLocal(start);
 				}
+                
 			}
 
 			document.getElementById('fetchBtn').addEventListener('click', fetchAndRender);
@@ -321,9 +345,22 @@
 				enforceLimits();
 				const apiKey = loadApiKey();
 				if(!apiKey){ showModal(true); return; }
-				const start = fromInputToUnix(fpStart, document.getElementById('start'));
-				const end = fromInputToUnix(fpEnd, document.getElementById('end'));
+				let start = fromInputToUnix(fpStart, document.getElementById('start'));
+				let end = fromInputToUnix(fpEnd, document.getElementById('end'));
                 
+				if(!Number.isFinite(start) || !Number.isFinite(end) || isNaN(start) || isNaN(end)){
+					// Try short-lived preset fallback recorded by setRangeRelative
+					if(lastPresetRange && (Date.now() - lastPresetRange.ts) < 5000){
+						if(!Number.isFinite(start) || isNaN(start)) start = lastPresetRange.startUnix;
+						if(!Number.isFinite(end) || isNaN(end)) end = lastPresetRange.endUnix;
+						// clear after use
+						lastPresetRange = null;
+					}else{
+                        
+						alert('Ungültige Start/Ende Werte — siehe Konsole');
+						return;
+					}
+				}
 				if(end <= start){ alert('Ende muss nach dem Start liegen'); return; }
 				// call API
 				const url = `${API_BASE}?start=${start}&end=${end}`;
@@ -435,10 +472,10 @@
 			function startLive(){
 				if(liveInterval) return;
 				liveBtn.classList.add('live-active');
-				liveBtn.textContent = 'Live ▴';
+				liveBtn.textContent = 'Live';
 				// show auto-zoom control when live is active
 				document.getElementById('autoZoomWrap').style.display = 'inline-flex';
-				// fetch immediately and then every 30s
+				// fetch immediately and then every 30 seconds
 				fetchRecent();
 				liveInterval = setInterval(fetchRecent, 30_000);
 			}
