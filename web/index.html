@@ -758,6 +758,12 @@
 			text-shadow: 0 1px 0 #fff;
 			font-size: 13px;
 		}
+
+		/* Muted callsign label for stale (older than 60s) aircraft */
+		.leaflet-tooltip.callsign-label.stale-label {
+			color: rgba(210,35,42,0.6);
+			opacity: 0.6;
+		}
 	</style>
 </head>
 
@@ -1170,20 +1176,33 @@
 				const pts = (flightData[callsign] || []).filter(p => p.ts <= unixTs);
 				if (pts.length === 0) return;
 				const latlngs = pts.map(p => [p.lat, p.lon]);
-				const color = 'rgba(210,35,42,0.95)';
-				L.polyline(latlngs, { color, weight: 3, opacity: 0.95 }).addTo(progressPathsLayer);
 				const last = pts[pts.length - 1];
-				const m = L.circleMarker([last.lat, last.lon], { radius: 8, fillColor: color, color: '#fff', weight: 1, fillOpacity: 0.95 });
+				// determine staleness relative to real time (not the scrubbed timeline)
+				const nowUnix = Math.floor(Date.now() / 1000);
+				const isStale = (nowUnix - last.ts) > 60; // stale if no update in last 60s
+				const color = 'rgba(210,35,42,0.95)';
+				const pathOpacity = isStale ? 0.45 : 0.95;
+				L.polyline(latlngs, { color, weight: 3, opacity: pathOpacity }).addTo(progressPathsLayer);
+				const m = L.circleMarker([last.lat, last.lon], {
+					radius: 8,
+					fillColor: color,
+					color: '#fff',
+					weight: 1,
+					fillOpacity: isStale ? 0.45 : 0.95
+				});
 				m.bindPopup(`<b>${callsign}</b><br>${formatTimeShortUnix(last.ts)}<br>${last.lat.toFixed(5)}, ${last.lon.toFixed(5)}`);
 				// show permanent callsign label next to marker
 				try {
-					m.bindTooltip(callsign, { permanent: true, direction: 'right', offset: [10, 0], className: 'callsign-label' });
+					// add an extra class to the tooltip when stale so CSS can mute it
+					const tooltipClass = 'callsign-label' + (isStale ? ' stale-label' : '');
+					m.bindTooltip(callsign, { permanent: true, direction: 'right', offset: [10, 0], className: tooltipClass });
 				} catch (e) { /* ignore if bindTooltip not available */ }
 				m.addTo(markersLayer);
 				bounds.push([last.lat, last.lon]);
 
 				const item = document.createElement('div'); item.className = 'flight-item';
 				item.innerHTML = `<strong>${callsign}</strong><div class='muted'>${formatTimeShortUnix(last.ts)} — ${last.lat.toFixed(4)}, ${last.lon.toFixed(4)}</div>`;
+				if (isStale) item.style.opacity = '0.6';
 				item.addEventListener('click', () => { map.panTo([last.lat, last.lon]); m.openPopup(); });
 				document.getElementById('list').appendChild(item);
 			});
