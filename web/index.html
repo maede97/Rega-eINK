@@ -975,6 +975,14 @@
 
 			// initial setup
 			setDefaults(); enforceLimits();
+			// Enable auto-zoom by default on mobile devices
+			try{
+				const autoZoomEl = document.getElementById('autoZoom');
+				if(autoZoomEl && window.innerWidth <= 1630) autoZoomEl.checked = true;
+				window.addEventListener('resize', ()=>{
+					if(window.innerWidth <= 1630 && autoZoomEl && !autoZoomEl.checked) autoZoomEl.checked = true;
+				});
+			}catch(e){/* ignore */}
 			// show modal on first load if key missing, otherwise start Live
 			const existing = loadApiKey();
 			if(!existing){
