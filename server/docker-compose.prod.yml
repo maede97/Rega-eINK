@@ -17,6 +17,8 @@ services:
     volumes:
       - ./flights.db:/app/flights.db
       - ./api_keys.txt:/app/api_keys.txt
+    environment:
+      - CORS_ORIGIN=rega.hueppis.com
 
   fetcher:
     image: ghcr.io/maede97/rega-eink-server:latest

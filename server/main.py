@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException, status
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 DB_PATH = Path(__file__).resolve().with_name("flights.db")
 API_KEYS_PATH = Path(__file__).resolve().with_name("api_keys.txt")
@@ -16,10 +17,21 @@ WEB_DIR = PROJECT_ROOT / "web"
 
 app = FastAPI(title="REGA Flights API", version="1.0.0")
 
-# Allow browser-based clients to access the API (adjust origins for production)
+# Configure CORS origins from the environment to harden the API.
+# Set `CORS_ORIGIN` to a comma-separated list of allowed origins (or `*`).
+cors_origins_env = os.getenv("CORS_ORIGIN", "")
+if cors_origins_env:
+    if cors_origins_env.strip() == "*":
+        allow_origins = ["*"]
+    else:
+        allow_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+else:
+    # Preserve previous behavior when not configured.
+    allow_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

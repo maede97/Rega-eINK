@@ -10,6 +10,8 @@ services:
     volumes:
       - ./flights.db:/app/flights.db
       - ./api_keys.txt:/app/api_keys.txt
+    environment:
+      - CORS_ORIGIN=*
     restart: unless-stopped
 
   fetcher:
