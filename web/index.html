@@ -1095,6 +1095,8 @@
 		document.getElementById('fetchBtn').addEventListener('click', fetchAndRender);
 
 		async function fetchAndRender() {
+			// stop live mode when doing a manual fetch
+			try { stopLive(); } catch (e) { /* ignore if stopLive not defined */ }
 			enforceLimits();
 			const apiKey = loadApiKey();
 			if (!apiKey) { showModal(true); return; }
