@@ -790,6 +790,16 @@
 			color: rgba(210, 35, 42, 0.6);
 			opacity: 0.6;
 		}
+
+			/* Followed callsign label (distinct visual) */
+			.leaflet-tooltip.callsign-label.followed-label {
+				background: #ffd700;
+				color: #000;
+				font-weight: 800;
+				padding: 0 6px;
+				border-radius: 4px;
+				text-shadow: none;
+			}
 	</style>
 </head>
 
@@ -899,6 +909,78 @@
 		const fullPathsLayer = L.layerGroup().addTo(map);
 		const progressPathsLayer = L.layerGroup().addTo(map);
 		let flightData = {};
+		// currently followed helicopter callsign (null if none)
+		let followedCallsign = null;
+		// active requestAnimationFrame id for follow pan animation
+		let _followPanRaf = null;
+
+		function _easeInOutQuad(t) { return t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; }
+
+		function cancelFollowPan() {
+			if (_followPanRaf) { cancelAnimationFrame(_followPanRaf); _followPanRaf = null; }
+		}
+
+		function panToFollow(lat, lon, durationMs = 500) {
+			// Smoothly animate map center from current center to target over durationMs using ease-in-out
+			try {
+				cancelFollowPan();
+				const start = map.getCenter();
+				const startLat = start.lat, startLng = start.lng;
+				const targetLat = Number(lat), targetLng = Number(lon);
+				if (!isFinite(startLat) || !isFinite(targetLat)) { map.setView([targetLat, targetLng]); return; }
+				const startTime = performance.now();
+				const zoom = map.getZoom();
+				(function step(now) {
+					const t = Math.min(1, Math.max(0, (now - startTime) / durationMs));
+					const eased = _easeInOutQuad(t);
+					const latNow = startLat + (targetLat - startLat) * eased;
+					const lngNow = startLng + (targetLng - startLng) * eased;
+					map.setView([latNow, lngNow], zoom, { animate: false });
+					if (t < 1) { _followPanRaf = requestAnimationFrame(step); }
+					else { _followPanRaf = null; }
+				})(performance.now());
+			} catch (e) { console.warn('panToFollow failed', e); map.panTo([lat, lon]); }
+		}
+
+		function followCallsign(callsign) {
+			followedCallsign = callsign;
+			// disable auto-zoom feature when following
+			try { const az = document.getElementById('autoZoom'); if (az) az.checked = false; } catch (e) { }
+			// update any open popup button text
+			updatePopupFollowButton();
+			// center the followed helicopter in the map view and close popup
+			try {
+				const unixTs = Number(slider && slider.value) || Math.floor(Date.now() / 1000);
+				const pts = (flightData[callsign] || []).filter(p => p.ts <= unixTs);
+				if (pts && pts.length) {
+					const last = pts[pts.length - 1];
+					panToFollow(last.lat, last.lon, 500);
+				}
+				map.closePopup();
+				// refresh markers to show followed styling
+				updateForTime(unixTs);
+			} catch (e) { console.warn('follow setup failed', e); }
+		}
+
+		function stopFollowing() {
+			if (!followedCallsign) return;
+			followedCallsign = null;
+			updatePopupFollowButton();
+			cancelFollowPan();
+			try { updateForTime(Number(slider.value) || Math.floor(Date.now() / 1000)); } catch (e) { }
+		}
+
+		function updatePopupFollowButton() {
+			try {
+				const pop = document.querySelector('.leaflet-popup');
+				if (!pop) return;
+				const btn = pop.querySelector('.follow-btn');
+				if (!btn) return;
+				const cs = btn.dataset.callsign;
+				if (followedCallsign && cs === followedCallsign) btn.textContent = 'Following — Stop';
+				else btn.textContent = 'Follow';
+			} catch (e) { }
+		}
 		const slider = document.getElementById('timeSlider');
 		const sliderTimeLabel = document.getElementById('sliderTime');
 
@@ -1226,18 +1308,19 @@
 				const color = 'rgba(210,35,42,0.95)';
 				const pathOpacity = isStale ? 0.45 : 0.95;
 				L.polyline(latlngs, { color, weight: 3, opacity: pathOpacity }).addTo(progressPathsLayer);
+				const isFollowed = (followedCallsign === callsign);
 				const m = L.circleMarker([last.lat, last.lon], {
-					radius: 8,
-					fillColor: color,
-					color: '#fff',
-					weight: 1,
+					radius: isFollowed ? 10 : 8,
+					fillColor: isFollowed ? '#ffd700' : color,
+					color: isFollowed ? '#b86b00' : '#fff',
+					weight: isFollowed ? 2 : 1,
 					fillOpacity: isStale ? 0.45 : 0.95
 				});
-				m.bindPopup(`<b>${callsign}</b><br>${formatTimeShortUnix(last.ts)}<br>${last.lat.toFixed(5)}, ${last.lon.toFixed(5)}`);
+				m.bindPopup(`<div><b>${callsign}</b><br>${formatTimeShortUnix(last.ts)}<br>${last.lat.toFixed(5)}, ${last.lon.toFixed(5)}<div style="margin-top:8px"><button class="follow-btn" data-callsign="${callsign}">Follow</button></div></div>`);
 				// show permanent callsign label next to marker
 				try {
-					// add an extra class to the tooltip when stale so CSS can mute it
-					const tooltipClass = 'callsign-label' + (isStale ? ' stale-label' : '');
+					// add an extra class to the tooltip when stale so CSS can mute it; highlight if followed
+					const tooltipClass = 'callsign-label' + (isStale ? ' stale-label' : '') + (isFollowed ? ' followed-label' : '');
 					m.bindTooltip(callsign, { permanent: true, direction: 'right', offset: [10, 0], className: tooltipClass });
 				} catch (e) { /* ignore if bindTooltip not available */ }
 				m.addTo(markersLayer);
@@ -1246,12 +1329,27 @@
 				const item = document.createElement('div'); item.className = 'flight-item';
 				item.innerHTML = `<strong>${callsign}</strong><div class='muted'>${formatTimeShortUnix(last.ts)} — ${last.lat.toFixed(4)}, ${last.lon.toFixed(4)}</div>`;
 				if (isStale) item.style.opacity = '0.6';
-				item.addEventListener('click', () => { map.panTo([last.lat, last.lon]); m.openPopup(); });
+				item.addEventListener('click', () => {
+					// Toggle following when clicking the same callsign; otherwise pan and open popup
+					if (followedCallsign === callsign) { stopFollowing(); return; }
+					map.panTo([last.lat, last.lon]); m.openPopup();
+				});
 				document.getElementById('list').appendChild(item);
 			});
 			// Do not change map view while scrubbing the slider.
 			// Keep this commented: if(bounds.length) map.fitBounds(bounds, {padding:[40,40]});
 			sliderTimeLabel.textContent = formatTimeShortUnix(unixTs);
+
+			// If a callsign is being followed, pan the map to its last-known position at this time
+			try {
+				if (followedCallsign) {
+					const pts = (flightData[followedCallsign] || []).filter(p => p.ts <= unixTs);
+					if (pts && pts.length) {
+						const last = pts[pts.length - 1];
+						panToFollow(last.lat, last.lon, 500);
+					}
+				}
+			} catch (e) { console.warn('follow pan failed', e); }
 		}
 
 		slider.addEventListener('input', () => {
@@ -1452,6 +1550,16 @@
 						});
 						if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
 					}
+					// If following a callsign, center on it (override auto-zoom)
+					try {
+						if (followedCallsign) {
+							const pts = flightData[followedCallsign] || [];
+							if (pts && pts.length) {
+								const last = pts[pts.length - 1];
+								panToFollow(last.lat, last.lon, 500);
+							}
+						}
+					} catch (e) { console.warn('follow pan failed', e); }
 				} catch (e) { console.warn('auto-zoom failed', e) }
 			} catch (err) { liveIsFetching = false; if (liveClockEl) liveClockEl.classList.remove('fetching'); console.error('Live fetch error', err); }
 		}
@@ -1468,6 +1576,37 @@
 				bounds.push([last.lat, last.lon]);
 			});
 			if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+		});
+
+		// Also listen for changes to autoZoom: enabling auto-zoom should stop any active follow
+		document.getElementById('autoZoom').addEventListener('change', (e) => {
+			if (e.target && e.target.checked) {
+				stopFollowing();
+			}
+		});
+
+		// When a popup opens, wire the follow button inside it
+		map.on('popupopen', (ev) => {
+			try {
+				const popupEl = ev.popup && ev.popup.getElement && ev.popup.getElement();
+				if (!popupEl) return;
+				const btn = popupEl.querySelector('.follow-btn');
+				if (!btn) return;
+				btn.addEventListener('click', (e) => {
+					const cs = btn.dataset.callsign;
+					if (!cs) return;
+					if (followedCallsign === cs) stopFollowing(); else followCallsign(cs);
+				});
+				btn.textContent = 'Follow';
+			} catch (e) { }
+		});
+
+		// Stop following if the user manually interacts with the map (pan/zoom/drag)
+		['movestart','zoomstart','mousedown','touchstart'].forEach(evt => {
+			map.on(evt, (e) => {
+				// Leaflet includes originalEvent for user interactions; ignore programmatic moves
+				if (e && e.originalEvent) stopFollowing();
+			});
 		});
 
 		const fsBtn = document.getElementById('fullscreenBtn');
