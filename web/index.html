@@ -367,6 +367,23 @@
 			cursor: pointer;
 		}
 
+			/* Highlight and badge for the currently followed helicopter in the list */
+			.flight-item.following {
+				background: linear-gradient(90deg, #fff9e6, #fff);
+				border-left: 4px solid #ffd700;
+			}
+
+			.flight-item .follow-badge {
+				display: inline-block;
+				background: #ffd700;
+				color: #000;
+				font-weight: 700;
+				padding: 2px 6px;
+				border-radius: 6px;
+				margin-left: 8px;
+				font-size: 12px;
+			}
+
 		.muted {
 			color: var(--muted);
 			font-size: 12px
@@ -956,6 +973,23 @@
 		let followedCallsign = null;
 		// active requestAnimationFrame id for follow pan animation
 		let _followPanRaf = null;
+		let _lastFollowPanTarget = null;
+		let _lastFollowPanTs = 0;
+		const FOLLOW_PAN_MIN_INTERVAL = 250; // ms
+
+		function _coordsEqual(a, b, eps = 1e-6) {
+			if (!a || !b) return false;
+			return Math.abs(a.lat - b.lat) <= eps && Math.abs(a.lng - b.lng) <= eps;
+		}
+
+		function shouldStartFollowPan(lat, lon) {
+			const now = Date.now();
+			const tgt = { lat: Number(lat), lng: Number(lon) };
+			if (!_lastFollowPanTarget) return true;
+			if (!_coordsEqual(tgt, _lastFollowPanTarget)) return true;
+			if ((now - _lastFollowPanTs) > FOLLOW_PAN_MIN_INTERVAL) return true;
+			return false;
+		}
 
 		function _easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
 
@@ -966,7 +1000,10 @@
 		function panToFollow(lat, lon, durationMs = 500) {
 			// Smoothly animate map center from current center to target over durationMs using ease-in-out
 			try {
+				
 				cancelFollowPan();
+				_lastFollowPanTarget = { lat: Number(lat), lng: Number(lon) };
+				_lastFollowPanTs = Date.now();
 				const start = map.getCenter();
 				const startLat = start.lat, startLng = start.lng;
 				const targetLat = Number(lat), targetLng = Number(lon);
@@ -986,6 +1023,7 @@
 		}
 
 		function followCallsign(callsign) {
+			
 			followedCallsign = callsign;
 			// disable auto-zoom feature when following
 			try { const az = document.getElementById('autoZoom'); if (az) az.checked = false; } catch (e) { }
@@ -995,10 +1033,11 @@
 			try {
 				const unixTs = Number(slider && slider.value) || Math.floor(Date.now() / 1000);
 				const pts = (flightData[callsign] || []).filter(p => p.ts <= unixTs);
-				if (pts && pts.length) {
-					const last = pts[pts.length - 1];
-					panToFollow(last.lat, last.lon, 500);
-				}
+					if (pts && pts.length) {
+						const last = pts[pts.length - 1];
+					
+						if (shouldStartFollowPan(last.lat, last.lon)) panToFollow(last.lat, last.lon, 500);
+					}
 				map.closePopup();
 				// refresh markers to show followed styling
 				updateForTime(unixTs);
@@ -1007,6 +1046,7 @@
 
 		function stopFollowing() {
 			if (!followedCallsign) return;
+			
 			followedCallsign = null;
 			updatePopupFollowButton();
 			cancelFollowPan();
@@ -1369,8 +1409,10 @@
 				bounds.push([last.lat, last.lon]);
 
 				const item = document.createElement('div'); item.className = 'flight-item';
-				item.innerHTML = `<strong>${callsign}</strong><div class='muted'>${formatTimeShortUnix(last.ts)} — ${last.lat.toFixed(4)}, ${last.lon.toFixed(4)}</div>`;
+				const badge = isFollowed ? `<span class="follow-badge">Following</span>` : '';
+				item.innerHTML = `<strong>${callsign}${badge}</strong><div class='muted'>${formatTimeShortUnix(last.ts)} — ${last.lat.toFixed(4)}, ${last.lon.toFixed(4)}</div>`;
 				if (isStale) item.style.opacity = '0.6';
+				if (isFollowed) item.classList.add('following');
 				item.addEventListener('click', () => {
 					// Toggle following when clicking the same callsign; otherwise pan and open popup
 					if (followedCallsign === callsign) { stopFollowing(); return; }
@@ -1386,9 +1428,11 @@
 			try {
 				if (followedCallsign) {
 					const pts = (flightData[followedCallsign] || []).filter(p => p.ts <= unixTs);
+					
 					if (pts && pts.length) {
 						const last = pts[pts.length - 1];
-						panToFollow(last.lat, last.lon, 500);
+						
+						if (shouldStartFollowPan(last.lat, last.lon)) panToFollow(last.lat, last.lon, 500);
 					}
 				}
 			} catch (e) { console.warn('follow pan failed', e); }
@@ -1483,6 +1527,19 @@
 					const now2 = performance.now();
 					slider.value = nextTs;
 					updateForTime(nextTs);
+
+					// Ensure we also pan to the followed helicopter after the jump
+					if (followedCallsign) {
+						try {
+							const pts2 = (flightData[followedCallsign] || []).filter(p => p.ts <= nextTs);
+						
+							if (pts2 && pts2.length) {
+								const last2 = pts2[pts2.length - 1];
+							
+								if (shouldStartFollowPan(last2.lat, last2.lon)) panToFollow(last2.lat, last2.lon, 500);
+							}
+						} catch (e) { /* ignore */ }
+					}
 					sliderPlayStart = now2 - (PLAY_DURATION_MS * ((nextTs - min) / (max - min))) / playSpeed;
 					// continue frame loop
 					sliderPlayFrame = requestAnimationFrame(step);
@@ -1491,6 +1548,18 @@
 				// normal advance
 				slider.value = v;
 				updateForTime(v);
+				
+				// ensure we keep centering on the followed helicopter during playback
+				if (followedCallsign) {
+					try {
+						const pts = (flightData[followedCallsign] || []).filter(p => p.ts <= v);
+						if (pts && pts.length) {
+							const last = pts[pts.length - 1];
+						
+							if (shouldStartFollowPan(last.lat, last.lon)) panToFollow(last.lat, last.lon, 500);
+						}
+					} catch (e) { /* ignore */ }
+				}
 				if (t < 1) { sliderPlayFrame = requestAnimationFrame(step); }
 				else { stopSliderPlay(); }
 			});
