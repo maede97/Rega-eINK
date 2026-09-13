@@ -1161,8 +1161,9 @@
 				const ts = Number(f.observed_at ?? f.timestamp);
 				const lat = Number(f.latitude);
 				const lon = Number(f.longitude);
+				const active = (f.active === 1);
 				if (!flightData[f.callsign]) flightData[f.callsign] = [];
-				flightData[f.callsign].push({ ts, lat, lon });
+				flightData[f.callsign].push({ ts, lat, lon, active });
 			});
 			Object.keys(flightData).forEach(c => flightData[c].sort((a, b) => a.ts - b.ts));
 
@@ -1208,10 +1209,17 @@
 				if (pts.length === 0) return;
 				const latlngs = pts.map(p => [p.lat, p.lon]);
 				const last = pts[pts.length - 1];
-				// determine staleness relative to the displayed timeline (`unixTs`)
-				// so manual scrubbing shows stale state at that point in time
-				const compareUnix = (typeof unixTs === 'number' && !isNaN(unixTs)) ? unixTs : Math.floor(Date.now() / 1000);
-				const isStale = (compareUnix - last.ts) > 60; // stale if no update in last 60s relative to compare time
+				// determine staleness relative to live mode or the displayed timeline (`unixTs`)
+				// In live mode: a track is stale only if every point has active:false
+				// Otherwise (history/range view), fall back to time-based staleness
+				let isStale;
+				if (liveInterval) {
+					const allInactive = pts.every(p => !p.active);
+					isStale = allInactive;
+				} else {
+					const compareUnix = (typeof unixTs === 'number' && !isNaN(unixTs)) ? unixTs : Math.floor(Date.now() / 1000);
+					isStale = (compareUnix - last.ts) > 60; // stale if no update in last 60s relative to compare time
+				}
 				const color = 'rgba(210,35,42,0.95)';
 				const pathOpacity = isStale ? 0.45 : 0.95;
 				L.polyline(latlngs, { color, weight: 3, opacity: pathOpacity }).addTo(progressPathsLayer);
