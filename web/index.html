@@ -34,6 +34,9 @@
 			color: #222;
 			background: var(--bg);
 			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+			min-height: 100vh;
 		}
 
 		/* Prevent horizontal overscroll/elastic drag on iOS and other browsers */
@@ -80,13 +83,14 @@
 		}
 
 		/* Desktop layout: two-column container with side panel */
-		/* Reduced height so map + panels fit on a single page; no scrolling */
+		/* Use flex layout for the page so the container fills remaining space */
 		.container {
 			display: grid;
 			grid-template-columns: 1fr 360px;
 			gap: 12px;
 			padding: 12px;
-			height: calc(100vh - 140px);
+			flex: 1 1 auto;
+			min-height: 0; /* allow children to size properly inside flex */
 			overflow: hidden
 		}
 
@@ -224,6 +228,23 @@
 				border-color: rgba(255, 255, 255, 0.18) !important;
 			}
 
+			/* live fetch clock (small circular progress) */
+			.live-clock {
+				width: 20px;
+				height: 20px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				margin-left: 6px;
+				vertical-align: middle;
+			}
+			.live-clock svg { width: 18px; height: 18px; display:block }
+			.c-progress { transform: rotate(-90deg); }
+			.c-bg { fill: none; stroke: rgba(255,255,255,0.25); stroke-width: 3; }
+			.c-fg { fill: none; stroke: #ffffff; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset 0.1s linear; }
+			.live-clock.fetching .c-fg { animation: pulse 1s ease-in-out infinite; }
+			@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
 			/* Desktop-specific: ensure Play/Pause button appears white when active */
 			.header-controls #playBtn.active {
 				background: white !important;
@@ -360,8 +381,9 @@
 			.container {
 				grid-template-columns: 1fr;
 				grid-auto-rows: 1fr;
-				height: calc(100vh - 120px);
 				padding: 6px;
+				flex: 1 1 auto;
+				min-height: 0;
 				overflow: hidden
 			}
 
@@ -380,6 +402,9 @@
 			.header-controls {
 				display: none
 			}
+
+			/* Hide live clock on mobile */
+			.live-clock { display: none !important; }
 
 			.header-controls {
 				gap: 6px;
@@ -790,6 +815,11 @@
 				<option value="604800">7 Tage</option>
 			</select>
 			<button id="liveBtn" class="secondary" data-toggle-state="true">Live</button>
+			<div id="liveClock" class="live-clock" title="Nächster Abruf">
+				<svg viewBox="0 0 36 36" class="c-progress"><path class="c-bg" d="M18 2.0845a15.9155 15.9155 0 1 1 0 31.831a15.9155 15.9155 0 1 1 0-31.831"/>
+					<path id="liveClockFg" class="c-fg" d="M18 2.0845a15.9155 15.9155 0 1 1 0 31.831a15.9155 15.9155 0 1 1 0-31.831"/>
+				</svg>
+			</div>
 			<label id="autoZoomWrap" style="align-items:center;gap:6px;margin-left:6px;display:inline-flex">
 				<input id="autoZoom" type="checkbox" style="width:16px;height:16px;margin-right:6px" />Auto-Zoom
 			</label>
@@ -1324,6 +1354,36 @@
 		let liveInterval = null;
 		const liveBtn = document.getElementById('liveBtn');
 
+		// Live fetch clock
+		const LIVE_FETCH_INTERVAL_MS = 30_000;
+		const liveClockEl = document.getElementById('liveClock');
+		const liveClockFg = liveClockEl ? liveClockEl.querySelector('.c-fg') : null;
+		let liveClockLastFetch = performance.now();
+		let liveClockRaf = null;
+		let liveIsFetching = false;
+
+		function updateLiveClock(now) {
+			if (!liveClockFg) return;
+			const elapsed = now - liveClockLastFetch;
+			const progress = Math.min(1, Math.max(0, elapsed / LIVE_FETCH_INTERVAL_MS));
+			const dash = 100 * (1 - progress);
+			liveClockFg.style.strokeDashoffset = String(dash);
+			liveClockRaf = requestAnimationFrame(updateLiveClock);
+		}
+
+		function startLiveClock() {
+			liveClockLastFetch = performance.now();
+			if (liveClockEl) liveClockEl.classList.remove('fetching');
+			if (!liveClockRaf) liveClockRaf = requestAnimationFrame(updateLiveClock);
+		}
+
+		function stopLiveClock() {
+			if (liveClockRaf) cancelAnimationFrame(liveClockRaf);
+			liveClockRaf = null;
+			if (liveClockFg) liveClockFg.style.strokeDashoffset = '100';
+			if (liveClockEl) liveClockEl.classList.remove('fetching');
+		}
+
 		function startLive() {
 			if (liveInterval) return;
 			liveBtn.classList.add('live-active');
@@ -1331,7 +1391,8 @@
 			liveBtn.textContent = 'Live';
 			// fetch immediately and then every 30 seconds
 			fetchRecent();
-			liveInterval = setInterval(fetchRecent, 30_000);
+			startLiveClock();
+			liveInterval = setInterval(() => { fetchRecent(); startLiveClock(); }, LIVE_FETCH_INTERVAL_MS);
 		}
 
 		function stopLive() {
@@ -1341,6 +1402,7 @@
 			liveBtn.classList.remove('live-active');
 			liveBtn.classList.remove('active');
 			liveBtn.textContent = 'Live';
+			stopLiveClock();
 			// keep auto-zoom control visible
 		}
 
@@ -1354,11 +1416,18 @@
 			const end = Math.floor(Date.now() / 1000);
 			const start = end - 5 * 60; // last 5 minutes
 			try {
+				// indicate fetching
+				liveIsFetching = true;
+				if (liveClockEl) liveClockEl.classList.add('fetching');
 				const url = `${API_LIVE}`;
 				const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
+				liveIsFetching = false;
+				if (liveClockEl) liveClockEl.classList.remove('fetching');
 				if (!res.ok) { if (res.status === 401) setShowClearKey(true); console.warn('Live fetch failed', res.status); return; }
 				else { setShowClearKey(false); }
 				const data = await res.json();
+				// reset clock on successful fetch
+				liveClockLastFetch = performance.now();
 				renderFlights(data.flights || [], start, end);
 				// if auto-zoom is enabled, fit map to last-known points
 				try {
@@ -1373,7 +1442,7 @@
 						if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
 					}
 				} catch (e) { console.warn('auto-zoom failed', e) }
-			} catch (err) { console.error('Live fetch error', err); }
+			} catch (err) { liveIsFetching = false; if (liveClockEl) liveClockEl.classList.remove('fetching'); console.error('Live fetch error', err); }
 		}
 
 		liveBtn.addEventListener('click', toggleLive);
