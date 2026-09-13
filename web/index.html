@@ -90,7 +90,8 @@
 			gap: 12px;
 			padding: 12px;
 			flex: 1 1 auto;
-			min-height: 0; /* allow children to size properly inside flex */
+			min-height: 0;
+			/* allow children to size properly inside flex */
 			overflow: hidden
 		}
 
@@ -238,12 +239,50 @@
 				margin-left: 6px;
 				vertical-align: middle;
 			}
-			.live-clock svg { width: 18px; height: 18px; display:block }
-			.c-progress { transform: rotate(-90deg); }
-			.c-bg { fill: none; stroke: rgba(255,255,255,0.25); stroke-width: 3; }
-			.c-fg { fill: none; stroke: #ffffff; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset 0.1s linear; }
-			.live-clock.fetching .c-fg { animation: pulse 1s ease-in-out infinite; }
-			@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+			.live-clock svg {
+				width: 18px;
+				height: 18px;
+				display: block
+			}
+
+			.c-progress {
+				transform: rotate(-90deg);
+			}
+
+			.c-bg {
+				fill: none;
+				stroke: rgba(255, 255, 255, 0.25);
+				stroke-width: 3;
+			}
+
+			.c-fg {
+				fill: none;
+				stroke: #ffffff;
+				stroke-width: 3;
+				stroke-linecap: round;
+				stroke-dasharray: 100;
+				stroke-dashoffset: 100;
+				transition: stroke-dashoffset 0.1s linear;
+			}
+
+			.live-clock.fetching .c-fg {
+				animation: pulse 1s ease-in-out infinite;
+			}
+
+			@keyframes pulse {
+				0% {
+					transform: scale(1);
+				}
+
+				50% {
+					transform: scale(1.12);
+				}
+
+				100% {
+					transform: scale(1);
+				}
+			}
 
 			/* Desktop-specific: ensure Play/Pause button appears white when active */
 			.header-controls #playBtn.active {
@@ -405,7 +444,9 @@
 			}
 
 			/* Hide live clock on mobile */
-			.live-clock { display: none !important; }
+			.live-clock {
+				display: none !important;
+			}
 
 			.header-controls {
 				gap: 6px;
@@ -791,15 +832,15 @@
 			opacity: 0.6;
 		}
 
-			/* Followed callsign label (distinct visual) */
-			.leaflet-tooltip.callsign-label.followed-label {
-				background: #ffd700;
-				color: #000;
-				font-weight: 800;
-				padding: 0 6px;
-				border-radius: 4px;
-				text-shadow: none;
-			}
+		/* Followed callsign label (distinct visual) */
+		.leaflet-tooltip.callsign-label.followed-label {
+			background: #ffd700;
+			color: #000;
+			font-weight: 800;
+			padding: 0 6px;
+			border-radius: 4px;
+			text-shadow: none;
+		}
 	</style>
 </head>
 
@@ -827,8 +868,10 @@
 			</select>
 			<button id="liveBtn" class="secondary" data-toggle-state="true">Live</button>
 			<div id="liveClock" class="live-clock" title="Nächster Abruf">
-				<svg viewBox="0 0 36 36" class="c-progress"><path class="c-bg" d="M18 2.0845a15.9155 15.9155 0 1 1 0 31.831a15.9155 15.9155 0 1 1 0-31.831"/>
-					<path id="liveClockFg" class="c-fg" d="M18 2.0845a15.9155 15.9155 0 1 1 0 31.831a15.9155 15.9155 0 1 1 0-31.831"/>
+				<svg viewBox="0 0 36 36" class="c-progress">
+					<path class="c-bg" d="M18 2.0845a15.9155 15.9155 0 1 1 0 31.831a15.9155 15.9155 0 1 1 0-31.831" />
+					<path id="liveClockFg" class="c-fg"
+						d="M18 2.0845a15.9155 15.9155 0 1 1 0 31.831a15.9155 15.9155 0 1 1 0-31.831" />
 				</svg>
 			</div>
 			<label id="autoZoomWrap" style="align-items:center;gap:6px;margin-left:6px;display:inline-flex">
@@ -914,7 +957,7 @@
 		// active requestAnimationFrame id for follow pan animation
 		let _followPanRaf = null;
 
-		function _easeInOutQuad(t) { return t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; }
+		function _easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
 
 		function cancelFollowPan() {
 			if (_followPanRaf) { cancelAnimationFrame(_followPanRaf); _followPanRaf = null; }
@@ -1602,7 +1645,7 @@
 		});
 
 		// Stop following if the user manually interacts with the map (pan/zoom/drag)
-		['movestart','zoomstart','mousedown','touchstart'].forEach(evt => {
+		['movestart', 'zoomstart', 'mousedown', 'touchstart'].forEach(evt => {
 			map.on(evt, (e) => {
 				// Leaflet includes originalEvent for user interactions; ignore programmatic moves
 				if (e && e.originalEvent) stopFollowing();
