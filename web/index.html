@@ -1020,8 +1020,7 @@
 				const btn = pop.querySelector('.follow-btn');
 				if (!btn) return;
 				const cs = btn.dataset.callsign;
-				if (followedCallsign && cs === followedCallsign) btn.textContent = 'Following — Stop';
-				else btn.textContent = 'Follow';
+				btn.textContent = 'Follow';
 			} catch (e) { }
 		}
 		const slider = document.getElementById('timeSlider');
