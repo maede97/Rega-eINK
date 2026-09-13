@@ -858,6 +858,7 @@
 	<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js"></script>
 	<script>
 		const API_BASE = 'https://rega.hueppis.com/flights/range';
+		const API_LIVE = 'https://rega.hueppis.com/flights';
 		const MAX_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 		const map = L.map('map', { zoomControl: true }).setView([46.8, 8.2], 8);
@@ -1127,7 +1128,7 @@
 			// group points by callsign
 			flightData = {};
 			flights.forEach(f => {
-				const ts = Number(f.observed_at);
+				const ts = Number(f.observed_at ?? f.timestamp);
 				const lat = Number(f.latitude);
 				const lon = Number(f.longitude);
 				if (!flightData[f.callsign]) flightData[f.callsign] = [];
@@ -1353,7 +1354,7 @@
 			const end = Math.floor(Date.now() / 1000);
 			const start = end - 5 * 60; // last 5 minutes
 			try {
-				const url = `${API_BASE}?start=${start}&end=${end}`;
+				const url = `${API_LIVE}`;
 				const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + apiKey } });
 				if (!res.ok) { if (res.status === 401) setShowClearKey(true); console.warn('Live fetch failed', res.status); return; }
 				else { setShowClearKey(false); }
